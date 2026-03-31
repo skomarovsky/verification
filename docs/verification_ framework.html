@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Your AI Just Wrote 500 Lines of Code. Can You Prove Any of It Works?</title>
+<style>
+  /* Medium story import strips most CSS, but we include it for preview */
+  body { font-family: Georgia, serif; max-width: 740px; margin: 0 auto; padding: 20px; line-height: 1.7; color: #292929; }
+  h1 { font-size: 2em; line-height: 1.2; margin-bottom: 0.3em; }
+  h2 { font-size: 1.4em; margin-top: 2em; }
+  h3 { font-size: 1.15em; margin-top: 1.5em; }
+  blockquote { border-left: 3px solid #ccc; padding-left: 20px; margin-left: 0; color: #555; font-style: italic; }
+  .subtitle { font-size: 1.15em; color: #555; font-weight: bold; margin-bottom: 2em; }
+  figure { margin: 2em 0; text-align: center; }
+  figcaption { font-size: 0.85em; color: #888; margin-top: 8px; font-style: italic; }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+</style>
+</head>
+<body>
+
+<h1>Your AI Just Wrote 500 Lines of Code. Can You <em>Prove</em> Any of It Works?</h1>
+<p class="subtitle">A framework for figuring out when AI-generated code can be formally verified — and when you're kidding yourself.</p>
+
+<hr>
+
+<p>I've been thinking about a problem that's been bugging me for a while.</p>
+
+<p>We're all using AI to write code now. Copilot, Claude, ChatGPT, internal tools — whatever your flavor. And the code is… surprisingly good? It passes tests, it looks reasonable, it usually does what you asked for.</p>
+
+<p>But "usually" is doing a lot of heavy lifting in that sentence.</p>
+
+<p>Here's the thing nobody talks about at the stand-up: <strong>testing can show you bugs exist. It cannot prove they don't.</strong> That's not a philosophical position. It's a mathematical fact, courtesy of Dijkstra, circa 1972. And it matters a lot more now that we're generating code at a pace where human review is becoming a bottleneck rather than a safety net.</p>
+
+<p>So I started asking a different question. Not "is this code correct?" but something more fundamental:</p>
+
+<p><strong>Can we even <em>know</em> if this code is correct? And if so, how hard is it to find out?</strong></p>
+
+<p>That question led to a framework I've been developing — a way to classify any AI-generated artifact by how amenable it is to formal verification. Not testing. Not code review. <em>Mathematical proof.</em> I'm wrapping up an academic paper on this with machine-checked proofs of the core claims, and I plan to publish it soon. But the ideas are too useful to keep locked in a PDF, so here's the practitioner's version.</p>
+
+<p>Let me walk you through it.</p>
+
+<hr>
+
+<h2>The Five Things That Determine Whether You Can Prove Your Code Works</h2>
+
+<p>After a lot of analysis (and quite a bit of theorem proving), I identified five independent structural properties that determine verification tractability. Think of them as dials. Each one, independently, makes the proof harder or easier.</p>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- FIGURE 1: Five Dimensions Radar/Dial Diagram  -->
+<!-- ══════════════════════════════════════════════ -->
+<figure>
+<svg viewBox="0 0 700 420" xmlns="http://www.w3.org/2000/svg" style="max-width:700px; width:100%;">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f4fd"/>
+      <stop offset="100%" stop-color="#f8fbfe"/>
+    </linearGradient>
+    <filter id="shadow1" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+  <rect width="700" height="420" rx="12" fill="url(#g1)"/>
+
+  <!-- Title -->
+  <text x="350" y="36" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a3c6e">The Five Dimensions of Verifiability</text>
+
+  <!-- Dimension cards -->
+  <!-- 1. Purity -->
+  <g filter="url(#shadow1)">
+    <rect x="20" y="60" width="200" height="155" rx="10" fill="white" stroke="#2e6da4" stroke-width="1.5"/>
+    <rect x="20" y="60" width="200" height="32" rx="10" fill="#2e6da4"/>
+    <rect x="20" y="82" width="200" height="10" fill="#2e6da4"/>
+    <text x="120" y="82" text-anchor="middle" font-size="12" font-weight="bold" fill="white">1. PURITY</text>
+    <text x="120" y="106" text-anchor="middle" font-size="9.5" fill="#555">Does the code depend on</text>
+    <text x="120" y="119" text-anchor="middle" font-size="9.5" fill="#555">the outside world?</text>
+    <text x="30" y="142" font-size="8.5" fill="#1a7a3a">● Pure → easiest to verify</text>
+    <text x="30" y="156" font-size="8.5" fill="#b8860b">● Managed → tracked effects</text>
+    <text x="30" y="170" font-size="8.5" fill="#c0392b">● Opaque → hardest</text>
+    <text x="120" y="198" text-anchor="middle" font-size="20" fill="#2e6da4">⚡</text>
+    <text x="120" y="210" text-anchor="middle" font-size="7.5" fill="#2e6da4" font-weight="bold">HIGHEST IMPACT</text>
+  </g>
+
+  <!-- 2. State -->
+  <g filter="url(#shadow1)">
+    <rect x="240" y="60" width="200" height="155" rx="10" fill="white" stroke="#5b8c5a" stroke-width="1.5"/>
+    <rect x="240" y="60" width="200" height="32" rx="10" fill="#5b8c5a"/>
+    <rect x="240" y="82" width="200" height="10" fill="#5b8c5a"/>
+    <text x="340" y="82" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2. STATE COMPLEXITY</text>
+    <text x="340" y="106" text-anchor="middle" font-size="9.5" fill="#555">How big is the</text>
+    <text x="340" y="119" text-anchor="middle" font-size="9.5" fill="#555">state space?</text>
+    <text x="250" y="142" font-size="8.5" fill="#1a7a3a">● Finite → exhaustively checkable</text>
+    <text x="250" y="156" font-size="8.5" fill="#b8860b">● Inductive → proof by induction</text>
+    <text x="250" y="170" font-size="8.5" fill="#c0392b">● Unbounded → needs abstraction</text>
+  </g>
+
+  <!-- 3. Specification -->
+  <g filter="url(#shadow1)">
+    <rect x="460" y="60" width="220" height="155" rx="10" fill="white" stroke="#8e6ba1" stroke-width="1.5"/>
+    <rect x="460" y="60" width="220" height="32" rx="10" fill="#8e6ba1"/>
+    <rect x="460" y="82" width="220" height="10" fill="#8e6ba1"/>
+    <text x="570" y="82" text-anchor="middle" font-size="12" font-weight="bold" fill="white">3. SPECIFICATION</text>
+    <text x="570" y="106" text-anchor="middle" font-size="9.5" fill="#555">Can you precisely define</text>
+    <text x="570" y="119" text-anchor="middle" font-size="9.5" fill="#555">"correct"?</text>
+    <text x="470" y="142" font-size="8.5" fill="#1a7a3a">● Decidable → auto-checkable</text>
+    <text x="470" y="156" font-size="8.5" fill="#b8860b">● Semi-decidable → proof search</text>
+    <text x="470" y="170" font-size="8.5" fill="#c0392b">● Undecidable → HARD WALL ⛔</text>
+  </g>
+
+  <!-- 4. Dependencies -->
+  <g filter="url(#shadow1)">
+    <rect x="80" y="240" width="240" height="155" rx="10" fill="white" stroke="#c0793c" stroke-width="1.5"/>
+    <rect x="80" y="240" width="240" height="32" rx="10" fill="#c0793c"/>
+    <rect x="80" y="262" width="240" height="10" fill="#c0793c"/>
+    <text x="200" y="262" text-anchor="middle" font-size="12" font-weight="bold" fill="white">4. EXTERNAL DEPENDENCIES</text>
+    <text x="200" y="286" text-anchor="middle" font-size="9.5" fill="#555">How many unverified assumptions</text>
+    <text x="200" y="299" text-anchor="middle" font-size="9.5" fill="#555">does the proof rely on?</text>
+    <text x="90" y="322" font-size="8.5" fill="#555">Each dependency = unverified axiom</text>
+    <text x="90" y="338" font-size="8.5" fill="#c0392b">Confidence degrades multiplicatively:</text>
+    <text x="90" y="354" font-size="9" font-weight="bold" fill="#c0392b">10 deps at 95% each → 60% total</text>
+    <text x="90" y="370" font-size="9" font-weight="bold" fill="#c0392b">20 deps at 95% each → 36% total</text>
+  </g>
+
+  <!-- 5. Concurrency -->
+  <g filter="url(#shadow1)">
+    <rect x="360" y="240" width="240" height="155" rx="10" fill="white" stroke="#c0392b" stroke-width="1.5"/>
+    <rect x="360" y="240" width="240" height="32" rx="10" fill="#c0392b"/>
+    <rect x="360" y="262" width="240" height="10" fill="#c0392b"/>
+    <text x="480" y="262" text-anchor="middle" font-size="12" font-weight="bold" fill="white">5. CONCURRENCY</text>
+    <text x="480" y="286" text-anchor="middle" font-size="9.5" fill="#555">Does timing and</text>
+    <text x="480" y="299" text-anchor="middle" font-size="9.5" fill="#555">ordering matter?</text>
+    <text x="370" y="322" font-size="8.5" fill="#1a7a3a">● Atemporal → order irrelevant</text>
+    <text x="370" y="338" font-size="8.5" fill="#b8860b">● Sequential → single thread</text>
+    <text x="370" y="354" font-size="8.5" fill="#c0392b">● Concurrent → state-space explosion</text>
+    <text x="480" y="383" text-anchor="middle" font-size="8" fill="#c0392b" font-style="italic">Eliminated by purity + bounded state!</text>
+  </g>
+</svg>
+<figcaption>The five independent structural dimensions that determine whether AI-generated code can be formally verified.</figcaption>
+</figure>
+
+<h3>1. Purity — Does your code talk to the outside world?</h3>
+
+<p>A pure function takes inputs, produces outputs, done. No database calls, no API hits, no checking the clock, no random numbers. Give it the same inputs, you get the same outputs, every single time.</p>
+
+<p>This is the single biggest factor. If your AI-generated function is pure, proving it correct is <em>dramatically</em> easier because the proof doesn't need to account for every possible state of the universe. It just needs to reason about inputs and outputs.</p>
+
+<p>The moment your code reads from a database or calls an external service, you've introduced the entire state of that external system into your verification problem. The proof now has to say "this works <em>regardless of what the database returns</em>," which is a much, much harder claim.</p>
+
+<p><strong>Practical takeaway:</strong> If you're configuring AI to generate code for critical paths, push it toward pure functions wherever possible. This isn't just good software engineering — it's the single most impactful thing you can do for verifiability.</p>
+
+<h3>2. State Complexity — How big is the state space?</h3>
+
+<p>A function that validates a credit card number using the Luhn algorithm has a tiny, well-defined state space. A real-time order book has a state space that grows with every order, every cancellation, every partial fill.</p>
+
+<p>There are three flavors here:</p>
+<ul>
+<li><strong>Finite</strong> — you can literally enumerate all possible states. Verification tools can exhaustively check all of them.</li>
+<li><strong>Inductive</strong> — infinite states, but structurally regular. Think linked lists, trees, recursive data structures. You can prove things about <em>all</em> of them using induction ("if it works for a list of length n, it works for length n+1").</li>
+<li><strong>Unbounded</strong> — dynamically growing, irregular, no structural pattern to exploit. This is where proof gets really hard.</li>
+</ul>
+
+<h3>3. Specification Clarity — Can you even <em>say</em> what "correct" means?</h3>
+
+<p>This one catches people off guard.</p>
+
+<p>Before you can prove code is correct, you need a precise definition of "correct." Not a user story. Not a Jira ticket. A mathematical statement.</p>
+
+<p>For some problems, this is easy: "the output list must be sorted and contain exactly the same elements as the input list." That's crisp. You can write a theorem about it.</p>
+
+<p>For others? "The recommendation engine should surface relevant products." Good luck writing a theorem about <em>that</em>.</p>
+
+<p>There are actually three levels:</p>
+<ul>
+<li><strong>Decidable</strong> — a machine can check it automatically, no human needed.</li>
+<li><strong>Semi-decidable</strong> — a proof <em>might</em> be found, but you're not guaranteed one. This is where interactive theorem provers live — they'll find a proof if one exists within the search space, but they might search indefinitely.</li>
+<li><strong>Undecidable</strong> — mathematically impossible to decide for all cases. Full stop. This is a <em>hard wall</em>. No amount of money, compute, or genius overcomes it. This isn't a conjecture — it's a proven consequence of Gödel's Incompleteness Theorems, Turing's resolution of the <em>Entscheidungsproblem</em>, and Church's work on the lambda calculus, all from the 1930s. These results established that certain classes of questions about programs are inherently unanswerable by any algorithm. That fact is not going away.</li>
+</ul>
+
+<p><strong>Recognizing undecidability early saves you from pouring resources into a hole with no bottom.</strong></p>
+
+<h3>4. External Dependencies — How many things are you trusting without proof?</h3>
+
+<p>Every external system your code calls — every API, every database, every third-party library — enters your verification as an <em>unverified assumption</em>. "We assume the payment gateway returns accurate status codes." "We assume the market data feed delivers prices within 50ms."</p>
+
+<p>These assumptions might be true. They might not. The point is: your proof is only as strong as your weakest assumption.</p>
+
+<p>And here's the kicker: <strong>the confidence degrades multiplicatively, not additively.</strong> If each of 10 assumptions has a 95% chance of being correct, your overall confidence isn't 50% (10 × 5% risk). It's 0.95¹⁰ ≈ 60%. With 20 assumptions at 95% each, you're at 36%.</p>
+
+<p>That math should make anyone with a lot of microservices a little nervous.</p>
+
+<h3>5. Concurrency — Does timing matter?</h3>
+
+<p>Code that processes one thing at a time: manageable. Code where multiple threads are reading and writing shared state simultaneously: nightmare.</p>
+
+<p>The number of possible execution orderings (interleavings) grows combinatorially with the number of concurrent threads — this is the classic <em>state-space explosion</em> problem. For n threads of m steps each, the number of interleavings is on the order of (nm)! / (m!)ⁿ. Concretely, a system with 3 threads of 10 steps each has on the order of <em>billions</em> of possible interleavings. Testing can cover a tiny fraction of them. Proving correctness must account for <em>all</em> of them.</p>
+
+<p>This is why concurrent systems are the last frontier of formal verification, and why race conditions haunt production systems for years before they manifest.</p>
+
+<hr>
+
+<h2>The Four Tiers: A Classification You Can Actually Use</h2>
+
+<p>Based on where a piece of software falls on these five dimensions, it lands in one of four tiers. I've formally proved that these tiers are exhaustive, mutually exclusive, and strictly ordered — every artifact goes into exactly one bucket, and the buckets are ranked by difficulty.</p>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- FIGURE 2: Four Tiers Diagram                  -->
+<!-- ══════════════════════════════════════════════ -->
+<figure>
+<svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" style="max-width:700px; width:100%;">
+  <defs>
+    <linearGradient id="gt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0f7ff"/>
+      <stop offset="100%" stop-color="#fdf6f0"/>
+    </linearGradient>
+    <filter id="sh" x="-3%" y="-3%" width="106%" height="106%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <rect width="700" height="380" rx="12" fill="url(#gt)"/>
+  <text x="350" y="32" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a3c6e">The Four Verification Tiers</text>
+
+  <!-- Arrow showing increasing difficulty -->
+  <line x1="60" y1="55" x2="60" y2="360" stroke="#ccc" stroke-width="1.5"/>
+  <polygon points="55,55 60,42 65,55" fill="#ccc"/>
+  <text x="40" y="200" text-anchor="middle" font-size="8" fill="#999" transform="rotate(-90,40,200)">INCREASING DIFFICULTY</text>
+
+  <!-- Tier 1 -->
+  <g filter="url(#sh)">
+    <rect x="80" y="50" width="600" height="70" rx="8" fill="#e8f5e9" stroke="#4caf50" stroke-width="1.5"/>
+    <rect x="80" y="50" width="120" height="70" rx="8" fill="#4caf50"/>
+    <rect x="192" y="50" width="8" height="70" fill="#4caf50"/>
+    <text x="140" y="82" text-anchor="middle" font-size="14" font-weight="bold" fill="white">TIER 1</text>
+    <text x="140" y="100" text-anchor="middle" font-size="9" fill="#e8f5e9">Directly Verifiable</text>
+    <text x="215" y="75" font-size="10" font-weight="bold" fill="#2e7d32">Verify it now. The tools exist today.</text>
+    <text x="215" y="92" font-size="9" fill="#555">Pure code • Simple state • Clear spec • Few dependencies • No concurrency</text>
+    <text x="215" y="109" font-size="8.5" fill="#777" font-style="italic">Examples: data validation, fee calculation, sorting, checksums, transformations</text>
+  </g>
+
+  <!-- Tier 2 -->
+  <g filter="url(#sh)">
+    <rect x="80" y="130" width="600" height="70" rx="8" fill="#e3f2fd" stroke="#2196f3" stroke-width="1.5"/>
+    <rect x="80" y="130" width="120" height="70" rx="8" fill="#2196f3"/>
+    <rect x="192" y="130" width="8" height="70" fill="#2196f3"/>
+    <text x="140" y="162" text-anchor="middle" font-size="14" font-weight="bold" fill="white">TIER 2</text>
+    <text x="140" y="180" text-anchor="middle" font-size="9" fill="#bbdefb">Verifiable w/ Effort</text>
+    <text x="215" y="155" font-size="10" font-weight="bold" fill="#1565c0">Achievable with expert guidance or AI-assisted proof.</text>
+    <text x="215" y="172" font-size="9" fill="#555">Managed effects • Structured state • Sequential • Moderate dependencies</text>
+    <text x="215" y="189" font-size="8.5" fill="#777" font-style="italic">Examples: API contracts, state machines, regulatory rule engines, schema migrations</text>
+  </g>
+
+  <!-- Tier 3 -->
+  <g filter="url(#sh)">
+    <rect x="80" y="210" width="600" height="70" rx="8" fill="#fff8e1" stroke="#ff9800" stroke-width="1.5"/>
+    <rect x="80" y="210" width="120" height="70" rx="8" fill="#ff9800"/>
+    <rect x="192" y="210" width="8" height="70" fill="#ff9800"/>
+    <text x="140" y="242" text-anchor="middle" font-size="14" font-weight="bold" fill="white">TIER 3</text>
+    <text x="140" y="260" text-anchor="middle" font-size="9" fill="#fff3e0">Research Frontier</text>
+    <text x="215" y="235" font-size="10" font-weight="bold" fill="#e65100">Theoretically possible, practically out of reach — for now.</text>
+    <text x="215" y="252" font-size="9" fill="#555">High concurrency • Many dependencies • Complex state • Opaque effects</text>
+    <text x="215" y="269" font-size="8.5" fill="#777" font-style="italic">Examples: distributed transactions, multi-service orchestration, real-time matching</text>
+  </g>
+
+  <!-- Beyond -->
+  <g filter="url(#sh)">
+    <rect x="80" y="290" width="600" height="70" rx="8" fill="#fce4ec" stroke="#e53935" stroke-width="1.5"/>
+    <rect x="80" y="290" width="120" height="70" rx="8" fill="#e53935"/>
+    <rect x="192" y="290" width="8" height="70" fill="#e53935"/>
+    <text x="140" y="322" text-anchor="middle" font-size="14" font-weight="bold" fill="white">BEYOND</text>
+    <text x="140" y="340" text-anchor="middle" font-size="9" fill="#ffcdd2">Intractable</text>
+    <text x="215" y="315" font-size="10" font-weight="bold" fill="#b71c1c">Mathematically impossible. Stop trying to prove. Start detecting.</text>
+    <text x="215" y="332" font-size="9" fill="#555">Undecidable spec • Unbounded + concurrent + opaque combined</text>
+    <text x="215" y="349" font-size="8.5" fill="#777" font-style="italic">Strategy: testing, runtime monitoring, circuit breakers, observability</text>
+  </g>
+</svg>
+<figcaption>Every AI-generated artifact falls into exactly one of these four tiers. The tiers are exhaustive, mutually exclusive, and strictly ordered — proven mathematically.</figcaption>
+</figure>
+
+<p><strong>Tier 1 — Directly Verifiable.</strong> Pure code, simple state, clear spec, minimal dependencies, no concurrency. Current tools can handle this <em>today</em>. If your AI is generating pure data transformations, sorting algorithms, validation logic, or calculation engines — you can formally verify them. Right now. This is not speculative.</p>
+
+<p><strong>Tier 2 — Verifiable with Effort.</strong> Some managed side effects, structured state, sequential processing, moderate dependencies. You'll need a theorem prover and either a human expert or a very good AI proof assistant, but it's achievable. Think API contract verification, state machine correctness, regulatory rule engines.</p>
+
+<p><strong>Tier 3 — Research Frontier.</strong> High concurrency, many dependencies, complex state. Theoretically verifiable, but beyond what current tools can handle practically. Active research area. Think distributed transaction systems, real-time multi-service orchestration.</p>
+
+<p><strong>Beyond — Formally Intractable.</strong> The specification itself is undecidable, or the combination of unbounded state, full concurrency, and opaque dependencies makes verification provably impossible. Don't throw money at formal verification here. Invest in robust testing, runtime monitoring, and circuit breakers instead. <em>Know when to stop trying to prove and start trying to detect.</em></p>
+
+<hr>
+
+<h2>The Thing I Didn't Expect: Purity Kills Concurrency</h2>
+
+<p>Here's the result that surprised me the most.</p>
+
+<p>If your code is pure (no side effects) and your state space is well-structured (finite or inductive), then <strong>the concurrency dimension collapses entirely</strong>. It effectively becomes zero.</p>
+
+<p>Why? Because without side effects and with deterministic transitions, there's only one possible execution trace for any given input sequence. There's nothing to interleave. The scariest dimension of the framework just… vanishes.</p>
+
+<p>This has a profound architectural implication: <strong>the way you <em>generate</em> the code determines whether you can <em>verify</em> the code.</strong> If your AI coding pipeline is configured to produce pure, structurally clean artifacts, you've preemptively eliminated the hardest verification challenge. This is a design-time decision, not a test-time one.</p>
+
+<hr>
+
+<h2>The Paradox: Who Verifies the Verifier?</h2>
+
+<p>Okay, but here's the question sharp readers are already asking: if we're using AI to write the code <em>and</em> AI to write the proofs, haven't we just moved the problem?</p>
+
+<p>Yes and no.</p>
+
+<p><strong>The proof-checking side is actually solved.</strong> Modern theorem provers have a tiny, human-audited kernel — typically a few thousand lines of code — that mechanically checks whether a proof is valid. This kernel is deterministic and exhaustively scrutinized. If it says the proof is valid, it's valid. It doesn't matter if the proof was generated by a human, an AI, or a monkey at a typewriter.</p>
+
+<p><strong>The specification side is NOT solved.</strong> If an AI generates both the code and the spec, it can (unconsciously, through optimization pressure) gravitate toward specs that are easy to prove rather than specs that are meaningful to prove. "I proved the output list has the same length as the input" is not the same as "I proved the output is correctly sorted." The proof is valid. The spec is inadequate. You now have <em>false confidence</em> — the worst kind.</p>
+
+<p><strong>The fix:</strong> Specifications must remain under human review. The human says <em>what</em> the code should do. The AI figures out <em>how</em> to prove it does. The kernel confirms the proof is valid. Three-party separation of concerns.</p>
+
+<hr>
+
+<h2>Verified Pieces ≠ Verified System</h2>
+
+<p>One more finding that matters for anyone building systems from components: <strong>Tier 1 is not closed under composition.</strong></p>
+
+<p>Translation: you can have two individually verified components, combine them, and the result is <em>not</em> automatically verified. Why? Because each component's verification depends on assumptions about its interfaces, and when you compose them, those assumptions accumulate. Two components with 2 external dependencies each combine into a system with 4, potentially pushing it past the Tier 1 threshold.</p>
+
+<p>This is a real problem for microservice architectures. Each service might be verified in isolation, but the system-level guarantee requires an additional composition argument. That's the subject of the next paper I'm working on.</p>
+
+<hr>
+
+<h2>So What Do I Actually Do Monday Morning? A Prescriptive Guide</h2>
+
+<p>Theory is nice. Toolchains are nicer. Here's a tier-by-tier guide to what you can use today and what to watch for tomorrow.</p>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- FIGURE 3: Tooling Landscape                   -->
+<!-- ══════════════════════════════════════════════ -->
+<figure>
+<svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" style="max-width:700px; width:100%;">
+  <defs>
+    <linearGradient id="gbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fafafa"/>
+      <stop offset="100%" stop-color="#f5f5f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="700" height="340" rx="12" fill="url(#gbg)"/>
+  <text x="350" y="28" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a3c6e">Tooling by Tier</text>
+
+  <!-- Tier 1 tools -->
+  <rect x="15" y="45" width="165" height="280" rx="8" fill="#e8f5e9" stroke="#4caf50" stroke-width="1"/>
+  <text x="97" y="65" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e7d32">TIER 1: Prove It</text>
+  <text x="25" y="88" font-size="9.5" font-weight="bold" fill="#333">Dafny</text>
+  <text x="25" y="101" font-size="8" fill="#666">Auto-verified specs. 82% LLM</text>
+  <text x="25" y="112" font-size="8" fill="#666">success rate. Best entry point.</text>
+  <text x="25" y="132" font-size="9.5" font-weight="bold" fill="#333">Verus</text>
+  <text x="25" y="145" font-size="8" fill="#666">Rust verification. Leverages</text>
+  <text x="25" y="156" font-size="8" fill="#666">type system for memory safety.</text>
+  <text x="25" y="176" font-size="9.5" font-weight="bold" fill="#333">F*</text>
+  <text x="25" y="189" font-size="8" fill="#666">Security &amp; crypto protocols.</text>
+  <text x="25" y="209" font-size="9.5" font-weight="bold" fill="#333">CrossHair</text>
+  <text x="25" y="222" font-size="8" fill="#666">Python symbolic execution.</text>
+  <text x="25" y="233" font-size="8" fill="#666">FastAPI/Pydantic ecosystem.</text>
+  <text x="25" y="253" font-size="9.5" font-weight="bold" fill="#333">Hypothesis / QuickCheck</text>
+  <text x="25" y="266" font-size="8" fill="#666">Property-based testing.</text>
+  <text x="25" y="277" font-size="8" fill="#666">Not proof, but close.</text>
+  <text x="25" y="297" font-size="9.5" font-weight="bold" fill="#333">beartype + Pydantic</text>
+  <text x="25" y="310" font-size="8" fill="#666">Runtime contract enforcement.</text>
+
+  <!-- Tier 2 tools -->
+  <rect x="190" y="45" width="165" height="280" rx="8" fill="#e3f2fd" stroke="#2196f3" stroke-width="1"/>
+  <text x="272" y="65" text-anchor="middle" font-size="11" font-weight="bold" fill="#1565c0">TIER 2: Specify It</text>
+  <text x="200" y="88" font-size="9.5" font-weight="bold" fill="#333">TLA+</text>
+  <text x="200" y="101" font-size="8" fill="#666">Gold standard for distributed</text>
+  <text x="200" y="112" font-size="8" fill="#666">system design. Amazon uses it.</text>
+  <text x="200" y="132" font-size="9.5" font-weight="bold" fill="#333">Alloy</text>
+  <text x="200" y="145" font-size="8" fill="#666">Lightweight modeling. Finds the</text>
+  <text x="200" y="156" font-size="8" fill="#666">one weird edge case.</text>
+  <text x="200" y="176" font-size="9.5" font-weight="bold" fill="#333">JML / Code Contracts</text>
+  <text x="200" y="189" font-size="8" fill="#666">JVM / .NET spec annotations.</text>
+  <text x="200" y="200" font-size="8" fill="#666">Stepping stone to formal specs.</text>
+  <text x="200" y="220" font-size="9.5" font-weight="bold" fill="#333">Clover</text>
+  <text x="200" y="233" font-size="8" fill="#666">LLM + SMT closed-loop</text>
+  <text x="200" y="244" font-size="8" fill="#666">verification. 87% accept /</text>
+  <text x="200" y="255" font-size="8" fill="#666">100% reject. Watch this space.</text>
+
+  <!-- Tier 3 tools -->
+  <rect x="365" y="45" width="165" height="280" rx="8" fill="#fff8e1" stroke="#ff9800" stroke-width="1"/>
+  <text x="447" y="65" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">TIER 3: Monitor It</text>
+  <text x="375" y="88" font-size="9.5" font-weight="bold" fill="#333">RV-Monitor / JavaMOP</text>
+  <text x="375" y="101" font-size="8" fill="#666">Runtime verification against</text>
+  <text x="375" y="112" font-size="8" fill="#666">formal properties. Real-time.</text>
+  <text x="375" y="132" font-size="9.5" font-weight="bold" fill="#333">Gremlin / Litmus</text>
+  <text x="375" y="145" font-size="8" fill="#666">Chaos engineering. Stress-test</text>
+  <text x="375" y="156" font-size="8" fill="#666">under controlled failure.</text>
+  <text x="375" y="176" font-size="9.5" font-weight="bold" fill="#333">Pact / Spring Cloud</text>
+  <text x="375" y="189" font-size="8" fill="#666">Contract testing. Verify</text>
+  <text x="375" y="200" font-size="8" fill="#666">interface assumptions hold.</text>
+
+  <!-- Beyond tools -->
+  <rect x="540" y="45" width="145" height="280" rx="8" fill="#fce4ec" stroke="#e53935" stroke-width="1"/>
+  <text x="612" y="65" text-anchor="middle" font-size="11" font-weight="bold" fill="#b71c1c">BEYOND: Detect It</text>
+  <text x="550" y="88" font-size="9.5" font-weight="bold" fill="#333">OpenTelemetry</text>
+  <text x="550" y="101" font-size="8" fill="#666">Distributed tracing.</text>
+  <text x="550" y="112" font-size="8" fill="#666">Detect failure fast.</text>
+  <text x="550" y="132" font-size="9.5" font-weight="bold" fill="#333">Datadog / Grafana</text>
+  <text x="550" y="145" font-size="8" fill="#666">Anomaly detection.</text>
+  <text x="550" y="156" font-size="8" fill="#666">Observability stack.</text>
+  <text x="550" y="176" font-size="9.5" font-weight="bold" fill="#333">Resilience4j</text>
+  <text x="550" y="189" font-size="8" fill="#666">Circuit breakers. Isolate</text>
+  <text x="550" y="200" font-size="8" fill="#666">the blast radius.</text>
+  <text x="612" y="240" text-anchor="middle" font-size="9" fill="#b71c1c" font-style="italic">The honest engineering</text>
+  <text x="612" y="253" text-anchor="middle" font-size="9" fill="#b71c1c" font-style="italic">answer to undecidability.</text>
+</svg>
+<figcaption>Match your assurance strategy to the tier. Prove what you can. Monitor what you can't.</figcaption>
+</figure>
+
+<h3>Tier 1 Artifacts: Verify Them. Seriously, Just Do It.</h3>
+
+<p>These are your pure functions, your data transformations, your business logic calculations. The tooling exists <em>now</em>:</p>
+
+<ul>
+<li><strong>Dafny</strong> (Microsoft) — probably the most accessible entry point for working engineers. You write your code with specifications (pre/post-conditions, invariants) and Dafny's solver proves them automatically. Recent benchmarks show LLMs can generate verified Dafny code with ~82% success rate. If you're picking one tool to try first, this is it.</li>
+<li><strong>Verus</strong> — if your team writes Rust, Verus adds verification to Rust programs. It leverages Rust's type system to eliminate memory reasoning, letting you focus on proving functional correctness. Still maturing but extremely promising for systems-level code.</li>
+<li><strong>F*</strong> (F-star) — designed specifically for verification-oriented programming. Strong in cryptographic protocol verification and security properties. If you're writing code that touches authentication, encryption, or secure communication, look here.</li>
+<li><strong>Property-based testing (Hypothesis, QuickCheck, fast-check)</strong> — not formal verification, but the next best thing for Tier 1 code where you're not ready for a full theorem prover. These tools auto-generate thousands of random test cases from specifications. They won't <em>prove</em> correctness, but they'll catch far more edge cases than hand-written tests.</li>
+<li><strong>CrossHair</strong> — if your team works in Python (and especially if you're in a FastAPI / Pydantic ecosystem), CrossHair deserves a look. It uses symbolic execution to <em>analyze</em> your Python functions against their contracts — type annotations, preconditions, postconditions — and attempts to find counterexamples or prove their absence. It's not a full theorem prover, but it bridges the gap between property-based testing and formal verification for Python code. Pair it with <strong>beartype</strong> or <strong>Pydantic's</strong> built-in validation for runtime contract enforcement, and you get a lightweight Tier 1 assurance pipeline without leaving the Python ecosystem.</li>
+</ul>
+
+<h3>Tier 2 Artifacts: Invest in Specifications and Contracts</h3>
+
+<p>The bottleneck at Tier 2 isn't the proving — it's the specifying. Focus on making your intentions machine-readable:</p>
+
+<ul>
+<li><strong>TLA+</strong> (Leslie Lamport / Microsoft) — the gold standard for specifying distributed systems and state machines. It won't verify your implementation directly, but it verifies your <em>design</em>. Amazon, MongoDB, and others use TLA+ to catch protocol bugs before writing a single line of code. If your AI is generating state machine logic or workflow orchestration, model it in TLA+ first.</li>
+<li><strong>Alloy</strong> — lightweight formal modeling with automatic analysis. Great for exploring design spaces and finding counterexamples. Less about proving everything correct, more about finding the one weird case where your design breaks.</li>
+<li><strong>JML (Java Modeling Language) / Code Contracts (.NET)</strong> — if you're in a JVM or .NET shop, these let you add formal specifications directly to your codebase as annotations. They integrate with static analysis tools and provide a stepping stone from "tests that check examples" to "specs that constrain all behavior."</li>
+<li><strong>Clover / LLM-assisted verification pipelines</strong> — emerging research tools that use LLMs to generate code, specifications, <em>and</em> proofs in a closed loop, with an SMT solver rejecting anything that doesn't check out. Early results show 87% acceptance of correct solutions and 100% rejection of incorrect ones. Watch this space.</li>
+</ul>
+
+<h3>Tier 3 Artifacts: Model, Monitor, Contain</h3>
+
+<p>You can't prove these correct (yet), but you can be disciplined about managing risk:</p>
+
+<ul>
+<li><strong>Runtime verification (RV-Monitor, JavaMOP)</strong> — these tools monitor running systems against formal properties in real time. If a specified invariant is violated at runtime, the system detects it immediately. Not a proof, but a safety net with teeth.</li>
+<li><strong>Chaos engineering (Gremlin, Litmus)</strong> — if you can't prove your concurrent distributed system is correct, stress-test it under controlled failure scenarios. Not formal verification, but a pragmatic complement for Tier 3 systems.</li>
+<li><strong>Contract testing (Pact, Spring Cloud Contract)</strong> — for microservice compositions where interface assumptions are the weak link. Contract tests verify that each service honors the expectations of its consumers. This directly addresses the interface surface area dimension.</li>
+</ul>
+
+<h3>Beyond Tier 3: Accept, Detect, Recover</h3>
+
+<ul>
+<li><strong>Observability stack (OpenTelemetry, Datadog, Grafana)</strong> — when you can't prove correctness, detect failure fast. Structured logging, distributed tracing, and anomaly detection become your primary assurance strategy.</li>
+<li><strong>Circuit breakers and graceful degradation (Resilience4j, Hystrix patterns)</strong> — if a component can fail in ways you can't prove it won't, isolate the blast radius. This is the engineering honest answer to undecidability.</li>
+</ul>
+
+<hr>
+
+<h2>Where This Goes Next</h2>
+
+<p>The decomposition question. If a system is too complex for direct verification (Tier 3 or beyond), can we systematically break it into pieces that <em>are</em> verifiable, and does verifying the pieces give us confidence in the whole?</p>
+
+<p>Early results say: it's subtle. Decomposition and recomposition are not symmetric. But there are conditions under which it works, and I think they're formalizable. Stay tuned.</p>
+
+<hr>
+
+<h2>I'd Love to Hear What You Think</h2>
+
+<p>Some questions I'm genuinely wrestling with and would appreciate perspectives on:</p>
+
+<ul>
+<li><strong>How are you assessing trust in AI-generated code today?</strong> Is it code review? Testing? Vibes?</li>
+<li><strong>Does the tier model match your intuition?</strong> When you think about the AI-generated code in your codebase, can you mentally place it in one of the four tiers?</li>
+<li><strong>Where does formal verification fit in your organization's risk posture?</strong> Is it seen as academic overhead, or is there appetite for it as AI-generated code proliferates?</li>
+<li><strong>The specification problem</strong> — who in your organization would be responsible for writing the formal specs that AI-generated code gets verified against?</li>
+<li><strong>Have you tried any of the tools above?</strong> I'd love to hear war stories — what worked, what didn't, what surprised you.</li>
+</ul>
+
+<p>Drop a comment. Disagree with me. Tell me I'm wrong about the tiers. That's how this gets better.</p>
+
+<hr>
+
+<p><em>I'm finishing an academic paper with the full formal framework and machine-checked proofs behind these ideas. I'll share the link here once it's published. If you work on formal methods, AI code generation, or software assurance and want to collaborate on the decomposition paper, reach out.</em></p>
+
+</body>
+</html>
