@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>In the Beginning Was the Word</title>
+<meta name="author" content="Stanislav Komarovsky">
+<meta name="description" content="On formal verification, AI-generated specifications, and the sufficiency gap.">
+<style>
+/* Minimal styling for readable preview. Medium's importer ignores all of this. */
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  max-width: 680px;
+  margin: 40px auto;
+  padding: 0 20px;
+  line-height: 1.6;
+  color: #222;
+}
+h1 { font-size: 2.2em; margin-top: 0; line-height: 1.2; }
+h2 { font-size: 1.6em; margin-top: 2em; line-height: 1.3; }
+h3 { font-size: 1.2em; margin-top: 1.6em; font-style: italic; }
+p { margin: 1em 0; }
+blockquote {
+  border-left: 3px solid #999;
+  padding-left: 1em;
+  margin: 1.5em 0;
+  font-size: 1.15em;
+  font-weight: bold;
+}
+code {
+  font-family: Consolas, Monaco, monospace;
+  background: #f4f4f4;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+hr { margin: 2.5em 0; border: none; border-top: 1px solid #ccc; }
+em { font-style: italic; }
+strong { font-weight: bold; }
+.references p { font-size: 0.95em; margin: 0.6em 0; }
+</style>
+</head>
+<body>
+
+<h1>In the Beginning Was the Word</h1>
+
+<p>Something has shifted in how we're being asked to work, and I don't think the new signal is quite right.</p>
+
+<p>A few years ago, the job was to write the code. You thought about a problem, you shaped a solution, you put it in the machine, and what came out the other end was something you understood because you had built it. The thinking and the typing were the same act.</p>
+
+<p>The signal today is different. The signal today says: stop typing. You're an architect now. You steer, you verify, you ship. The model writes the code. This is not just a tonal shift in how teams talk about their work; it is the institutional direction. Gartner projects that by 2028, 90% of enterprise software engineers will use AI code assistants, and that the role of developers will shift from implementation to orchestration, focusing on problem solving and system design (Gartner, 2025). What the signal doesn't say out loud, but carries underneath, is that the old accountability still holds &mdash; the quality of what goes out is yours &mdash; and that the pace is no longer the old pace. Substantially faster is the new expectation. The productivity narrative that surrounds this shift is genuinely compelling, and in parts, it's correct. There are categories of work where it's a clear improvement over what engineers were doing before. But three things are being bundled into a single instruction: take on a new role, keep the old responsibility, and move substantially faster. Any one of these alone is manageable. Together, they put pressure somewhere, and the place the pressure lands is the verification step &mdash; the one act that is supposed to hold the whole arrangement together.</p>
+
+<p>It is not a small act. Under the old arrangement, the person who wrote the code already understood it by the time it ran. Understanding was a byproduct of authorship. Under the new arrangement, understanding has to be purchased separately, after the fact, through deliberate work. When that work doesn't happen &mdash; when approval becomes a reflex rather than a check &mdash; the gap between what was generated and what anyone actually understands starts accumulating. I've written elsewhere about what happens when that gap grows: <em>epistemic debt</em>, code that looks clean but that nobody on the team can actually defend or safely change (Komarovsky &amp; Muthusamy, 2025). That piece was about the phenomenon. This piece is about one of the instruments we're being told will rescue us from it, and about a specific component of epistemic debt that the instrument itself produces when it's used without care. I'll call that component the <em>sufficiency gap</em>, and I'll define it precisely before the piece is done. It may turn out to be one of several such components.</p>
+
+<p>Formal verification is the instrument. The phrase carries weight. It sounds like the rigorous, mathematical answer to the very worry I just described &mdash; the idea that if AI is writing the code, at least we can <em>prove</em> the code is correct. &ldquo;Formally verified&rdquo; shows up in conversations now the way &ldquo;encrypted&rdquo; used to, as a kind of settlement of an argument. The industry has already begun to notice that the worry is real: Gartner's 2026 predictions note that a new class of defect is emerging as AI generates context-deficient code &mdash; output that is syntactically correct but lacks awareness of the broader system and business rules, producing subtle flaws that are hard to detect by conventional testing (Gartner, 2025b). Formal verification would seem to answer that concern directly. If it's formally verified, what else is there to say?</p>
+
+<p>Quite a lot, actually. And the gap between what formal verification actually delivers and what the phrase seems to promise is where the sufficiency gap lives.</p>
+
+<p>Here is the core of it. What the kernel of a theorem prover actually does is narrower than most readers assume. It checks, mechanically and without appeal, that a proof establishes what a specification asserts. It does not check whether the specification asserts what anyone actually wanted. That second question lives upstream, in the author's head, and has no formal counterpart inside the prover.</p>
+
+<p>For most of the history of formal methods, this distinction was unremarkable. A human wrote the specification. A human wrote the code, or at least read it. A human wrote the proof, or guided its construction. Intent entered the chain at the top, and everything downstream was anchored to it. The kernel's silence on intent was not a gap, because the human was there.</p>
+
+<p>That is changing. AI now participates at every level of the chain &mdash; assisting proofs, generating code, and increasingly, producing specifications. In most current uses, the human is still at the top and the chain holds. But the frontier is moving, and it is worth asking plainly what &ldquo;formally verified&rdquo; delivers when the human is no longer the author of the specification.</p>
+
+<p>The rest of this piece walks through what the kernel actually checks, three practices at which AI can enter the chain and what each does to the guarantee, what happens when AI delegates to AI, and what I think an honest use of the phrase &ldquo;formally verified&rdquo; should be.</p>
+
+<h2>What the Kernel Actually Checks</h2>
+
+<p>A theorem prover is not a type checker and not a test runner. A type checker confirms that the shapes of values flowing through a program are consistent with the shapes declared in its types. A test runner confirms that the program, executed on specific inputs, produces specific outputs. Neither answers the question a theorem prover's kernel answers, which is whether a mathematical proof establishes a mathematical claim.</p>
+
+<p>The kernel itself is a small program &mdash; a few thousand lines in most mature systems &mdash; whose job is narrow and mechanical. It takes two things: a proposition (the thing being claimed) and a proof (an object alleged to demonstrate the claim). It reduces the proof according to a fixed set of rules, comparing what the reduced form asserts against the proposition as written. If the two match, the kernel accepts. If they do not, it rejects. There is no heuristic, no search, no judgment. The rules are the rules.</p>
+
+<p>Modern provers work this way in the framework of dependent type theory, where proofs are terms and propositions are types, and &ldquo;the proof establishes the claim&rdquo; becomes &ldquo;the term inhabits the type.&rdquo; The details vary across systems, but the essential act does not.</p>
+
+<p>What this means for our argument is simple and worth stating directly. The kernel checks a relationship between two formal objects: a proof and a proposition. Everything else is outside its scope. Whether the proposition captures what was meant, whether the implementation behaves in the world, whether the specification was itself written by anyone with intent &mdash; these are not questions the kernel asks, and it does not pretend to answer them.</p>
+
+<h2>Three Practices</h2>
+
+<p>These are three practices for organizing AI-native software engineering &mdash; three ways software development is now being structured when AI participates in it. They differ in one specific thing: where in the development process AI takes over authorship. Engineers rarely choose between them. They inherit the one their team or organization has adopted. The differences among them, however, are not administrative. Each practice delivers a different verification guarantee, and the differences are worth understanding whether or not one chose them.</p>
+
+<p>Before working through the three, a single concrete example will serve to illustrate the core concept, allowing me to set it down once and refer back to it.</p>
+
+<p>Imagine a verified binary search. The function takes a sorted array and a key. It returns either the index where the key was found, or a signal that the key is absent. A specification for this function might read: <em>if the function returns</em> <code>Some(i)</code><em>, then</em> <code>a[i] == k</code>. A reader familiar with formal methods sees that line and recognizes it as a specification of binary search. A proof of this specification is real work; the kernel that checks it is doing real mathematics.</p>
+
+<p>Look at the specification again. It says what must be true when the function returns an index. It says nothing about what must happen when the key is in fact present. A function that returns <em>absent</em> for every input, regardless of the array, satisfies this specification completely. The proof goes through. The kernel accepts.</p>
+
+<p>The specification has captured a necessary condition for correctness &mdash; every correct binary search does satisfy it &mdash; while leaving the condition that would make the function actually useful unstated. In logic, this is the difference between necessity and sufficiency. Necessary means: without this, the thing cannot hold. Sufficient means: with this, the thing is guaranteed. Most working engineers were not trained to keep the distinction sharp. The distinction is about to matter.</p>
+
+<p>Hold this example. Now the three practices.</p>
+
+<h3>Practice 1: The human writes the spec, the AI assists the proof</h3>
+
+<p>In this arrangement, the human authors the specification. The human writes the code, or reviews code closely enough to treat it as authored. The AI's role is to help discharge proof obligations &mdash; suggesting tactics, completing proof terms, closing goals the human has identified. The kernel checks the resulting proof against the human-authored proposition.</p>
+
+<p>The verification guarantee here is the same one formal methods has always delivered. If the proof goes through, the kernel has established that the code satisfies the specification, and the specification was written by someone with intent. Whether the specification was strong enough to capture what was wanted is a question the kernel cannot answer, but that question has a human author to ask it to. The chain is anchored.</p>
+
+<p>This is the practice where AI participation is least consequential. The heavy lifting &mdash; saying what the code should do &mdash; is still human work. AI is an accelerator, not an authority.</p>
+
+<h3>Practice 2: The human writes the spec, the AI writes the code</h3>
+
+<p>The human still authors the specification. The AI generates code intended to satisfy it, and typically also generates the proof. The kernel checks the resulting proof against the human-authored proposition.</p>
+
+<p>The verification guarantee is still well-defined, and still anchored. The code is AI-generated, but it is being measured against a human-authored standard. If the proof goes through, the kernel has established that the AI-generated code satisfies the specification a human wrote. This is the practice measured by current AI-assisted verification benchmarks, and it is the practice where the industrial tools do their most impressive work.</p>
+
+<p>The sufficiency question remains open, but it remains where it has always been: at the top of the chain, in the hands of the human who wrote the specification. If that human wrote a necessity-only specification &mdash; the binary search spec above, say &mdash; the kernel will happily accept a proof that the AI-generated code satisfies it, and the code need not do what the human actually wanted. This failure mode is not new to AI. It is the classical formal-methods failure mode of underspecification. AI makes it more consequential because AI produces code and proofs fast enough that weak specifications get verified at speed, but the failure itself is old and the responsibility is clearly located.</p>
+
+<h3>Practice 3: The AI writes the spec</h3>
+
+<p>A human describes what they want, in natural language. The AI produces a specification. The AI produces code. The AI produces a proof. The kernel checks. Everything goes through.</p>
+
+<p>Return to the binary search example. In this practice, the specification <em>if the function returns</em> <code>Some(i)</code><em>, then</em> <code>a[i] == k</code> is itself AI-generated. It is well-formed, syntactically valid, and technically a specification of something binary-search-shaped. A proof of it is real mathematical work, and the kernel will accept the proof. A function that always returns <em>absent</em> will satisfy it.</p>
+
+<p>The chain is internally consistent. The kernel has done its job. The specification was not authored by anyone with intent.</p>
+
+<p>This is where the <strong>sufficiency gap</strong> is produced. A sufficiency gap is one component of epistemic debt &mdash; the form that accumulates when verification artifacts establish necessary conditions without establishing sufficient ones. In the engineering vocabulary most of us use, a proof that satisfies the binary search specification above is called <em>formally verified</em>. In the logical vocabulary most of us were never trained in, it is a verified necessary condition presented as if it were a verified sufficient one. Each such artifact adds to epistemic debt in a specific way: it appears to close a question that it has only narrowed.</p>
+
+<p>Practice 3 is not a failure mode within a verification workflow. It is a practice whose verification guarantee is structurally different from Practice 1 and Practice 2. The same tools accept the same kinds of artifacts and produce the same output phrase &mdash; <em>verified</em> &mdash; but the thing that has been verified is no longer anchored at the top of the chain to a human intention. The phrase has the same shape. The guarantee behind it does not.</p>
+
+<p>The discipline of this work is to notice the difference.</p>
+
+<h2>Sub-Agents and Agent Workflows</h2>
+
+<p>Practice 3 is not the end of the compounding. Once AI writes specifications, the same logic extends to compositions of AI &mdash; sub-agent hierarchies that decompose a specification task into pieces, and agent workflows that chain steps together in sequence. The two arrangements look different on an architecture diagram but behave the same way for this argument. Both are AI delegating to AI. Both are cases where a human is absent not just from the authorship of the final specification, but from the authorship of the intermediate artifacts that produced it.</p>
+
+<p>Two distinct failures happen in this setting. They are worth separating because they require different remedies.</p>
+
+<p>The first is <strong>intent degradation.</strong> The sufficiency gap from Practice 3 does not stay at one level. A specification produced by decomposing a task across sub-agents has a gap at each node, because each node is an AI-authored artifact with no intent behind it. The composition then produces a new gap that no individual node produces alone &mdash; the gap between what the composed specification asserts and what, if anything, the human at the top of the chain actually wanted. Each step is farther from human intention than the one before it, and the final artifact is farther from that intention than any step in it. The verification kernel at the end checks a proof against a proposition assembled from propositions that were themselves assembled from propositions. The kernel does its job completely. The anchor at the top is not weakened. It was never there.</p>
+
+<p>The second is <strong>confidence degradation.</strong> Reliability does not compose by addition. A chain of steps, each individually reliable enough, produces output whose reliability is lower than any of its components &mdash; often much lower. This is not a claim about any particular agent system; it is a property of composition itself. The longer the chain, the less confidence the final artifact can carry about its own derivation.</p>
+
+<p>These failures do not cancel. They stack. A verified artifact produced by a multi-step AI composition carries both an unanchored guarantee (no intent at the top) and a derivation process whose reliability decays with its length. The phrase <em>verified</em> at the end is doing even less work than it did at Practice 3 &mdash; the proposition it refers to was produced by a process that is structurally unanchored and statistically decaying at once.</p>
+
+<p>Some multi-agent architectures address these failures directly &mdash; through explicit human checkpoints at composition boundaries, through multi-judge evaluation, or through hybrid retrieval against verified operational state. These are design choices, not default behaviors. An agent workflow composed without them inherits both failures. The author has participated in building such systems; their design is outside the scope of this piece.</p>
+
+<h2>In the End, Also, the Word</h2>
+
+<p>A piece of this kind is at risk of reading as an attack on formal verification. It is not one. Formal verification is a remarkable instrument, and the kernel of a modern theorem prover is one of the most reliable pieces of software that exists. Nothing in this piece contests what the kernel does. What it contests is a particular misuse &mdash; a shift in what &ldquo;verified&rdquo; refers to when the specification itself is no longer authored by anyone with intent.</p>
+
+<p>The instrument remains what it always was. The work around the instrument is changing.</p>
+
+<p>What the reader who has come this far should be able to do is ask a plain question when they encounter the phrase <em>formally verified</em> in the world. The question is:</p>
+
+<blockquote>Where did the specification come from?</blockquote>
+
+<p>This is what engineers in other contexts call the provenance of the artifact &mdash; the traceable record of how it came to exist. The plain question is the one to ask; it is the one that will actually get answered.</p>
+
+<p>The answer locates where you are.</p>
+
+<p><strong>If a human wrote the specification</strong>, the phrase carries the meaning it has always carried. The guarantee is anchored at the top by the intent of the person who wrote down what they wanted. The classical questions still apply, and they are the right ones: is the specification strong enough? Does it constrain the sufficient conditions for correctness, or only the necessary ones? Has anyone reviewed it who understands the domain well enough to notice if something is missing? These questions are hard work. They have always been hard work. But the work is the right work, and the tools answer it cleanly.</p>
+
+<p><strong>If an AI wrote the specification</strong> &mdash; alone, or in composition with other AI &mdash; the follow-up question is about whether intent ever entered the chain at all. Did a human write a draft that the AI refined, or did the AI generate the specification from a natural-language description? If from a description, who wrote the description, and was the final specification read back against it by a human who could say <em>yes, this is what I meant</em>? The point of these follow-ups is to find the moment, if one exists, at which a human's intent attached to the formal artifact. If such a moment exists, the chain is partially anchored, and the phrase <em>verified</em> is doing some of its honest work. If not, the specification has a generation trace, not a provenance, and the phrase is doing something else.</p>
+
+<p><strong>If no one can say where the specification came from</strong>, the situation is not a third case. It is a signal that the work is not yet done. The remedy is not to proceed with the phrase <em>formally verified</em> in hand; it is to reconstruct the provenance, or to have a human author the specification <em>de novo</em>, until the question has an answer. Until then, the artifact has been mathematically checked but cannot be honestly called verified in the sense the phrase is usually taken to carry.</p>
+
+<p>Every formal artifact begins with a word. The kernel, silent and exact, checks what follows from that word. It does not and cannot check whether anyone meant it. That check has always been human work, and it remains human work now, even in an arrangement where the typing has been delegated elsewhere. The engineer's role in an AI-native practice is not only to steer, and not only to verify. It is to be the source of the word &mdash; the one whose intent anchors the chain that the kernel will, at the end, so faithfully verify.</p>
+
+<p>When the word comes from nowhere identifiable, the kernel will do its job all the same. The phrase <em>formally verified</em> will appear at the end. And no one will be able to say what it means.</p>
+
+<hr>
+
+<h2>Appendix: The Tool Landscape, Briefly</h2>
+
+<p>The main argument of this piece is neutral across tools. The sufficiency gap is a property of AI-generated specifications, not of any particular prover. But readers who come to this piece from different starting points &mdash; some familiar with Lean, some with Dafny, some with neither &mdash; may want orientation. This appendix is that orientation, compressed.</p>
+
+<p><strong>Interactive provers: Lean and Coq.</strong> Lean 4 is used for mathematics (the <em>mathlib</em> library) and increasingly for software verification. Coq has a long history in theoretical computer science, underpinning verified compilers like CompCert and formalized proofs like the Four Color Theorem. In both, the human writes proof terms explicitly. The kernel checks those terms. Expressiveness is very high &mdash; anything provable can, in principle, be proved &mdash; but the cost per proof is also high. A researcher fluent in Lean or Coq is working at the level of mathematical definitions, tactics, and proof structure.</p>
+
+<p><strong>SMT-backed systems: Dafny and F*.</strong> Dafny is a verification-aware programming language backed by the Z3 SMT solver. The human writes specifications (preconditions, postconditions, invariants) and the tool discharges most proof obligations automatically. F* sits nearby, combining dependent types with SMT automation, and has been used in security-critical code such as HACL* (verified cryptography) and miTLS (a verified TLS implementation). The tradeoff is straightforward: less expressiveness than interactive provers, much less work per verified artifact.</p>
+
+<p><strong>On effectiveness.</strong> For the kind of industrial verification work most engineers would encounter, Dafny is substantially more tractable than Lean. The learning curve is measured in weeks rather than months. Day-to-day productivity is higher because the SMT solver handles the proof steps the human would otherwise construct by hand. AWS has used Dafny in production at scale, including a verified cloud authorization engine that handles approximately one billion API calls per second, deployed in 2024 (Cutler et al., 2025).</p>
+
+<p>A recent benchmark makes the gap measurable. In a 2025 study of AI-assisted verified program synthesis, off-the-shelf LLMs achieved verification success rates of 27% in Lean, 44% in Verus/Rust, and 82% in Dafny (Aggarwal et al., 2025). A separate measurement in the same paper found that pure Dafny verification improved from 68% to 96% with better prompting and models. These numbers will shift as systems improve, but the ordering &mdash; Dafny comfortably ahead &mdash; is stable across multiple recent benchmarks and reflects the underlying automation advantage.</p>
+
+<p>One thing is worth noting for the main argument. The benchmark measures code and proof generation against a specification the human already wrote. That is Practice 2, not Practice 3. The easier Practice 2 becomes, the more tempting it becomes to let AI write the specification too. That is the temptation. The discipline of this work is to resist.</p>
+
+<hr>
+
+<h2>References</h2>
+
+<div class="references">
+
+<p>Aggarwal, A., et al. (2025). A Benchmark for Vericoding: Formally Verified Program Synthesis. <em>arXiv</em>:2509.22908.</p>
+
+<p>Cutler, J., Chakarov, A., Cook, B., et al. (2025). Formally Verified Cloud-Scale Authorization. In <em>Proceedings of the IEEE/ACM 47th International Conference on Software Engineering (ICSE)</em>. Also available as Amazon Science preprint.</p>
+
+<p>Gartner (2025). Top Strategic Trends in Software Engineering for 2025 and Beyond. Gartner press release, July 1, 2025.</p>
+
+<p>Gartner (2025b). <em>Predicts 2026: AI Potential and Risks Emerge in Software Engineering Technologies</em>. Hodgkins, A., Stewart, B., Dodd, H., Herschmann, J., Walsh, P., &amp; Batchu, A. Gartner, Inc.</p>
+
+<p>Komarovsky, S., &amp; Muthusamy, T. (2025). Your AI Coding Assistant Is Quietly Creating a New Kind of Technical Debt. <em>AI Advances / Medium</em>.</p>
+
+</div>
+
+</body>
+</html>
