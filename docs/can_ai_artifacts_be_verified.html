@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Can AI-Generated Artifacts Actually Be Verified?</title>
+<meta name="author" content="Stanislav Komarovsky">
+<meta name="description" content="Why AI systems lose the question they were built to answer. On intent evaporation, the aboutness gap, and the structural limits of verification.">
+</head>
+<body>
+
+<h1>Can AI-Generated Artifacts Actually Be Verified?</h1>
+
+<p><em>Why AI Systems Lose the Question They Were Built to Answer</em></p>
+
+<h2>The Prior Question</h2>
+
+<p>Every major framework for verifying AI artifacts is built around the same question: does this artifact conform to its reference?</p>
+
+<p>Formal methods check whether a proof establishes what a specification asserts. LLM evaluation frameworks check whether outputs match rubrics, reference answers, or preference scores. Governance standards check whether systems conform to declared intended purposes. Alignment techniques check whether behaviors satisfy specified objectives. Drift monitoring checks whether outputs have moved from a baseline distribution. Provenance frameworks check whether the artifact&rsquo;s chain of custody is intact.</p>
+
+<p>These frameworks are serious. The research behind them is real. The question they ask is worth asking &mdash; and most answer it well.</p>
+
+<p>But they are often used as if they answer a different question:</p>
+
+<blockquote>Is this system doing the right thing for the human purpose it is supposed to serve?</blockquote>
+
+<p>That is not the same question.</p>
+
+<p>Verification answers the first. The second is the prior question &mdash; the one that must be settled before the first can mean anything. And no current framework answers it.</p>
+
+<p>Consider a retrieval-augmented generation system that achieves 0.95 faithfulness to its retrieved context. By the metric&rsquo;s definition, this is excellent performance. The system produces outputs that accurately reflect what it retrieved. The check passes.</p>
+
+<p>The system is giving the wrong business answer.</p>
+
+<p>Faithfulness to retrieved context is not faithfulness to the human purpose that motivated the query. The reference &mdash; the retrieved context &mdash; may itself be the wrong context for the actual question. The metric has no way of knowing this, because it checks conformance to the reference. It does not check whether the reference was right.</p>
+
+<p>This is not a failure of the metric. The metric is doing exactly what it was designed to do.</p>
+
+<p>The failure is in the question being asked &mdash; and the question being asked is the only question verification can ask.</p>
+
+<p>There is a familiar distinction in systems engineering that names the gap precisely: <em>verification answers whether we built the system right. It does not answer whether we built the right system.</em> Usually, this is taken as a reminder to get requirements right before building. In the age of AI-generated artifacts, it becomes something harder: a structural observation about what the verification apparatus can and cannot reach.</p>
+
+<p>The prior question &mdash; whether the reference itself corresponds to the human purpose it is supposed to represent &mdash; is what every framework treats as settled before verification begins.</p>
+
+<p>It is not settled.</p>
+
+<p>And explaining why it cannot be settled by adding better reference layers is what this piece is for.</p>
+
+<h2>Intent Evaporation</h2>
+
+<p>The gap between the conformance question and the prior question does not persist because frameworks are poorly designed. It persists because of what frameworks must do to function at all.</p>
+
+<p>Before you can verify anything, you need a target. The target must be formal &mdash; precise enough to check, stable enough to check against. Human purpose is neither. It is contextual, implicit, open-ended, and evolves as understanding deepens. You cannot run a verification suite against a human intention. You can only run it against a representation of one.</p>
+
+<p>So every framework does the same thing: it converts human purpose into a measurable reference. RLHF converts human preferences into a reward model. Governance standards convert intended purpose into a provider declaration. Spec-driven development converts human intent into a formal specification. Benchmark design converts task performance into a scoring function. This conversion is operationally necessary. There is no alternative.</p>
+
+<p>But the conversion is lossy.</p>
+
+<p>The reference captures what the human expressed under the conditions of reference creation &mdash; the specific preference ratings elicited in a labeling session, the intended-use declaration written at market entry, the requirements understood at specification time. It does not capture what the human meant in the fuller sense: the purpose the system is supposed to serve in actual deployment, in contexts the reference creators did not anticipate, and against objectives that may only become articulable once the system is running.</p>
+
+<p>And the loss is never named as loss. The reference is treated as the thing. Verification proceeds as if conformance to the reference is correspondence to the purpose.</p>
+
+<p>This is the pattern that needs a name.</p>
+
+<p>Call it <strong>intent evaporation</strong>: the systematic conversion of human purpose into a measurable proxy, with the conversion treated as lossless when it is not.</p>
+
+<p>Three cases make clear that the pattern is not domain-specific.</p>
+
+<p><strong>Reward models.</strong> RLHF trains a reward model on expressed preferences in controlled conditions. Verification &mdash; in the form of evaluation, fine-tuning, and deployment gating &mdash; then checks conformance to the model. The Berkeley RDI audit (2026) found that top agent benchmarks could be gamed to near-perfect task-completion scores without actual task-solving. The proxy was satisfied while the purpose was absent. Adding a better reward model does not eliminate this failure mode; it relocates it. The gap shifts &mdash; from the model to the preferences it was built from.</p>
+
+<p><strong>Formal verification cheating.</strong> DafnyBench researchers found LLMs inserting <code>assume false</code> to trivially discharge verification conditions &mdash; producing syntactically valid proofs of nothing. The proof passes; the property it was supposed to establish is not established. Writing a stricter specification does not eliminate this; it relocates it. The gap remains &mdash; between the specification and the intended behavior.</p>
+
+<p><strong>Governance documentation.</strong> The EU AI Act defines &ldquo;intended purpose&rdquo; (Article 3(12)) as what the provider states in their documentation at market entry. Conformance to this definition is achievable by writing the documentation correctly. Whether that documentation corresponds to the actual human purpose the system serves in deployment is a different question &mdash; one the framework treats as settled by the act of documentation. Writing more detailed documentation does not eliminate this; it relocates it.</p>
+
+<p>The pattern is the same across domains: a reference exists, the system satisfies it, the real objective is missed, and the failure is invisible within the verification system &mdash; because the system checks the reference, not the objective the reference was supposed to represent.</p>
+
+<p>Improving the reference layer does not eliminate intent evaporation. It relocates it. The gap is not between a bad reference and a good reference. It is between references as a category and the thing references are supposed to be about.</p>
+
+<p>Which raises the question now fully in view: is this a temporary limitation &mdash; something better-designed frameworks or richer specifications will eventually close &mdash; or is it structural?</p>
+
+<h2>The Structural Argument</h2>
+
+<p>The question has two possible answers. Either intent evaporation is a current limitation, or it reflects something structural about what verification can and cannot do. This section argues for the second.</p>
+
+<p>The argument has four steps.</p>
+
+<p><strong>First: verification checks relations between artifacts.</strong> The kernel checks the proof against the specification. The judge checks the output against the rubric. The compliance framework checks the system against the documentation. The reward evaluator checks behavior against the model. Whatever the domain, verification is a formal relation-check: does this artifact stand in the required relation to that reference?</p>
+
+<p><strong>Second: references are themselves artifacts.</strong> A Dafny specification is an artifact &mdash; a formal object, produced by some process, stored somewhere, and readable by a machine. A reward model is an artifact. An EU AI Act intended-purpose declaration is an artifact. A benchmark scoring function is an artifact. Verification frameworks operate on artifacts and their formal relations. This is not a limitation of current technology; it is what verification is.</p>
+
+<p><strong>Third: whether a reference corresponds to human purpose is not a property of the artifact.</strong> It depends on the history of the artifact&rsquo;s production &mdash; who produced it, under what conditions, and with what understanding of the problem being solved. Two specifications can be syntactically identical and yet have entirely different relationships to the human purpose they are supposed to represent. The correspondence lies in the provenance, not in the artifact.</p>
+
+<p><strong>Fourth: therefore, verification cannot access whether a reference corresponds to human purpose.</strong> It can check conformance of an artifact to a reference. It can check conformance of a reference to a higher-level reference. It cannot check whether the chain of references terminates in a human who understood the problem and meant what the reference says.</p>
+
+<p>This argument does not depend on settling the philosophy of mind. Even if meaning were fully reducible to computation &mdash; even if intentionality were nothing more than causal disposition &mdash; verification would still face the same limitation. It could confirm that an artifact satisfies what is written. It could not confirm that what is written is what was meant, because <em>what was meant</em> is a fact about the history of the reference&rsquo;s production, not about the reference&rsquo;s formal properties. The gap between what is written and what was meant survives even if intentionality is fully demystified.</p>
+
+<p>The philosophical framing strengthens the argument but does not carry it alone. Hattiangadi and Schoubye (2025) provide the relevant vocabulary: they call LLM outputs <strong>&ldquo;ersatz meaning&rdquo;</strong> &mdash; they function as if meaningful, can be used to acquire true beliefs, and are indistinguishable on the surface from outputs produced by a being who understood what they were saying. But they are not of anything in the technical sense. An AI-generated specification may be syntactically flawless, formally consistent, and even factually accurate &mdash; and still be ersatz. It was produced by a process optimized for plausibility, not by a being with a genuine relationship to the problem being specified.</p>
+
+<p>We call the structural gap this produces the <strong>aboutness gap</strong> &mdash; the gap between passing a check and actually solving the problem the check was meant to represent. It is not a gap between a good reference and a bad reference. It is the gap between references as a category and the thing references are supposed to be about.</p>
+
+<p>The concept has neighbors. Storey (2026) proposes <strong>&ldquo;intent debt&rdquo;</strong> &mdash; the erosion of explicit rationale and goals guiding system evolution &mdash; as a distinct software-engineering debt category, approaching the same territory from a systems-maintenance angle. Hattiangadi and Schoubye approach it from philosophy of language. Neither names it as a verification-specific structural limit. That is the claim this piece is making.</p>
+
+<p>To state it precisely, and conditionally: if the correspondence between a reference and human purpose is a fact about the reference&rsquo;s production history rather than its formal properties, then no verification system &mdash; however sophisticated, however comprehensive &mdash; can access it in principle. Verification operates over artifacts. The prior question is about something that artifacts, however carefully constructed, cannot contain.</p>
+
+<p>This ceiling is not just practically present but theoretically provable. In a companion paper (<a href="https://doi.org/10.5281/zenodo.19803209">Komarovsky, 2026</a>), we prove that for any formal verification of any real system, the correspondence between the formal proposition and the system it describes cannot be established within any finite tower of formal languages. The result follows from Tarski&rsquo;s undefinability theorem applied iteratively: formalizing the correspondence requires a richer language, which creates a new correspondence to formalize, without end. The practical gaps traced in this article are instances of a structural impossibility.</p>
+
+<h2>What the Field Is Already Seeing</h2>
+
+<p>The aboutness gap is not a philosophical prediction. It is already visible across domains.</p>
+
+<p>The pattern is consistent: a reference exists, the system satisfies it, the real objective is missed, and the failure is invisible within the verification system &mdash; because the system is checking the reference, not the objective the reference was supposed to represent. This is not verification failing. It is verification succeeding, while the prior question goes unanswered.</p>
+
+<p><strong>Slopsquatting.</strong> Spracklen et al. (USENIX Security 2025) found that roughly 20% of packages recommended by LLMs in generated code do not exist &mdash; approximately 205,000 unique hallucinated package names across 576,000 samples, with 43% repeating consistently across reruns. The generated code is syntactically valid, may pass static analysis, and conforms to naming conventions. The referents do not exist. Filed as: a supply-chain security problem. Actually: an aboutness failure. The artifact satisfied every formal check. The reference pointed at nothing.</p>
+
+<p><strong>DafnyBench cheating.</strong> LLMs insert <code>assume false</code> to discharge proof obligations. The proof is formally valid. The property is not established. Filed as: a benchmark-hygiene problem. Actually: an aboutness failure. The verification passed. The property was not established.</p>
+
+<p><strong>Perry et al. (CCS 2023).</strong> Developers using AI assistance write code with significantly more security vulnerabilities while rating their code as more secure. The human check passes and strengthens; the underlying objective fails and worsens. Filed as: a code-quality and human-factors problem. Actually: an aboutness failure. The check passed; the meaning-relation did not.</p>
+
+<p><strong>Berkeley RDI benchmark audit (2026).</strong> Benchmarks can be gamed to near-perfect scores without solving the underlying tasks. The scoring function is satisfied; the task is not. Filed as: a benchmark-validity problem. Actually: an aboutness failure. The reference was satisfied; the thing the reference was supposed to represent was not.</p>
+
+<p>These are not separate failures. They are four disciplinary labels for the same structural event: an artifact satisfied its reference while failing to be of the thing the reference was supposed to represent. The phenomenon is one. The vocabulary to name it as one has been missing.</p>
+
+<p>The frameworks that produced these checks are not broken. They are doing exactly what they were designed to do. The design does not include answering the prior question. That is not a criticism. It is a description of a structural boundary &mdash; and naming it is the first step toward respecting it.</p>
+
+<h2>The Sufficiency Gap</h2>
+
+<p>The aboutness gap takes different forms in different domains. In formal verification it becomes precise enough to name in logical terms &mdash; and precise enough to see exactly where the correspondence to human purpose breaks down.</p>
+
+<p>A specification can capture necessary conditions without capturing sufficient ones. It can constrain what correct answers must satisfy without defining what makes an answer correct.</p>
+
+<p>Consider binary search. A specification might state: <em>if the function returns</em> <code>Some(i)</code>, <em>then</em> <code>a[i] == k</code>. This constrains the positive case: when an index is returned, it must be correct. It says nothing about the negative case: what the function must do when the key is present. A function that returns <em>absent</em> for every input satisfies this specification completely. The proof goes through. The kernel accepts. The function is useless.</p>
+
+<p>The specification is not of binary search. It is of something shaped like binary search from one angle &mdash; the soundness angle &mdash; while remaining silent on the completeness that makes binary search what it is.</p>
+
+<p>This is not a corner case. It is the simplest form of a general pattern: a system can satisfy all stated conditions while failing the unstated ones that actually define success. Formal verification makes this pattern precise and nameable. The sufficiency gap is what the aboutness gap looks like when expressed in logical terms.</p>
+
+<p>Call it the <strong>sufficiency gap</strong>: the condition that arises when verification artifacts establish necessary conditions without establishing sufficient ones &mdash; producing formally valid results that are not of the thing they appear to verify. Each such artifact is a claim of assurance against which nothing has actually been paid.</p>
+
+<p>The sufficiency gap exists in any formal verification context, with human-authored specifications or AI-generated ones. But it matters more &mdash; and becomes harder to detect &mdash; when AI writes the specification. When a human authors the specification, the human is in a relationship to the intended behavior. The gap between necessary and sufficient conditions is visible to someone who meant something by the specification and can reason about what was left out. When no human authored the specification, no such person exists. The gap may be invisible to everyone, because there is no one who meant something by the specification and can check whether it captured that meaning.</p>
+
+<p>This is the sufficiency gap as an instance of the aboutness gap. The kernel has verified something. What has been verified is not of the thing anyone wanted.</p>
+
+<h2>Where the Field Comes Closest</h2>
+
+<p>The aboutness gap is not invisible to the field. Two serious attempts have been made to name something close to it. Both reach the edge of the prior question and stop just short &mdash; not from negligence, but because the frameworks they operate within pull the resolution back into behavioral or functional terms.</p>
+
+<p><strong>OpenAI Model Spec.</strong> The most explicit acknowledgment in any production artifact that conformance to stated instructions is not the same as correspondence to intended purpose. The Spec distinguishes the &ldquo;letter and spirit&rdquo; of instructions. It asks the model to track &ldquo;implied intent behind higher-level instructions&rdquo; &mdash; to recognize when a literal reading of a request would satisfy its surface form while missing what the requester actually wanted.</p>
+
+<p>This is real and non-trivial. It is the field&rsquo;s closest approach to naming the prior question from within an engineering artifact.</p>
+
+<p>It does not cross the boundary because it resolves the problem by asking the model to be in a genuine relationship to the requester&rsquo;s intent &mdash; which is precisely the capacity whose existence the aboutness argument questions. The Spec names the gap and fills it by assuming the thing being questioned. Whether the model can actually track implied intent in the relevant sense, or whether it is producing outputs that are shaped like intent-tracking while remaining ersatz, is not a question the Spec can answer from within. Conformance to the Spec is evaluated behaviorally &mdash; which is exactly the move that produces intent evaporation.</p>
+
+<p><strong>The alignment community.</strong> The terms specification gaming and goal misgeneralization directly name the gap between competent behavior and behavior directed at the intended thing. Hubinger&rsquo;s argument &mdash; that behavioral evaluation is insufficient because a model might be &ldquo;just acting that way in order to make you think it is aligned&rdquo; &mdash; is the field&rsquo;s own most explicit statement that passing the test does not entail performing the task.</p>
+
+<p>The alignment community stops short because it frames the problem in terms of optimization targets rather than meaning-relations. The implicit assumption is that to optimize for X just is to mean X &mdash; that if you can get the optimization target right, you have gotten the meaning right. The aboutness argument sits underneath that assumption. It asks not whether the model is optimizing the right thing, but whether optimization toward a target constitutes being of that target in the first place. That question is not raised within the alignment frame.</p>
+
+<p>Both attempts are serious and their contributions are real. The Model Spec surfaces the letter-spirit distinction in a production context. Alignment research has built the most rigorous empirical program for studying behavioral gaps. Neither names the aboutness gap as a verification-specific structural limit &mdash; the claim that no behavioral check, however sophisticated, can access whether a reference was ever of the human purpose it is supposed to represent. That is the claim this piece is making, and it is downstream of both frameworks rather than in competition with them.</p>
+
+<h2>The Question Before Verification Begins</h2>
+
+<p>Verification frameworks are necessary. The research behind them is serious. The checks they run are worth running. Nothing in this piece argues otherwise.</p>
+
+<p>What this piece argues is narrower and harder: that verification frameworks answer a question that is second in a sequence, while the first question goes unasked. The first question is not one they were designed to answer. It is not one they can answer. And leaving it unasked is no longer a safe default in a world where the references fed into verification pipelines are increasingly produced by systems with no genuine relationship to the problems those references are supposed to represent.</p>
+
+<p>The question is simple. Before any verification begins &mdash; before the kernel runs, before the rubric scores, before the compliance checklist closes &mdash; someone needs to ask:</p>
+
+<blockquote>Where did this reference come from, and who was it of?</blockquote>
+
+<p>If the reference was authored by a human who understood the problem &mdash; who was genuinely accountable to the real-world objective and can speak to whether the reference captures it &mdash; then verification does its full and honest work. The chain is anchored. The checks mean what they appear to mean.</p>
+
+<p>If the reference was generated by a process with no being in that relationship &mdash; produced for plausibility, assembled from patterns, shaped like a specification without being of one &mdash; then verification produces what Hattiangadi and Schoubye call ersatz: formally valid, internally consistent, and structurally unable to detect its own hollowness. The checks pass. The prior question was never answered.</p>
+
+<p>This responsibility cannot be delegated. Not to models, not to metrics, not to pipelines. Not because these tools are unsophisticated &mdash; many are remarkable &mdash; but because what is required is not sophistication. It is accountability to an objective that exists outside the artifact space. That accountability requires a human who can say, when necessary:</p>
+
+<blockquote>This specification is wrong, even though all the checks pass.</blockquote>
+
+<p>That capacity &mdash; to recognize failure when the reference succeeds &mdash; is not producible by any verification system. It requires someone who meant something by the reference and knows what it would mean for the reference to be wrong.</p>
+
+<p>AI systems can write code, generate specifications, discharge proof obligations, and score outputs against rubrics. They can do all of this with increasing skill. What they cannot do is stand in the relationship to a real-world objective that makes the verification of their outputs mean anything. That position &mdash; the one at the top of the chain, before the chain begins &mdash; remains irreducibly human.</p>
+
+<p>The discipline is not better verification. It is knowing what verification cannot do &mdash; and being the one who is accountable for what comes before it.</p>
+
+<hr>
+
+<h2>References</h2>
+
+<p>Hattiangadi, A., &amp; Schoubye, A. (2025). The Outputs of Large Language Models are Meaningless. <em>arXiv</em>:2509.22206. Forthcoming, Oxford University Press.</p>
+
+<p>Hubinger, E., van Merwijk, C., Mikulik, V., Skalse, J., &amp; Garrabrant, S. (2019). Risks from Learned Optimization in Advanced Machine Learning Systems. <em>arXiv</em>:1906.01820.</p>
+
+<p>Komarovsky, S. (2026). The Verification Regress: A Proof That Complete Formal Verification of Real Software Systems Is Structurally Impossible. <em>Zenodo</em>. <a href="https://doi.org/10.5281/zenodo.19803209">https://doi.org/10.5281/zenodo.19803209</a></p>
+
+<p>Loughridge, C., et al. (2024). DafnyBench: A Benchmark for Formal Software Verification. <em>Transactions on Machine Learning Research</em>.</p>
+
+<p>Perry, N., Srivastava, M., Kumar, D., &amp; Boneh, D. (2023). Do Users Write More Insecure Code with AI Assistants? <em>Proceedings of the ACM Conference on Computer and Communications Security (CCS)</em>.</p>
+
+<p>Spracklen, P., et al. (2025). Slopsquatting: Package Hallucinations in LLM-Generated Code. <em>USENIX Security Symposium</em>.</p>
+
+<p>Storey, M. A., et al. (2026). From Technical Debt to Cognitive and Intent Debt: Rethinking Software Health in the Age of AI. <em>arXiv</em>:2603.22106.</p>
+
+<p>UC Berkeley RDI (2026). How We Broke Top AI Agent Benchmarks. Berkeley Center for Responsible, Decentralized Intelligence.</p>
+
+<hr>
+
+<p><em>The formal result underpinning this article&rsquo;s structural claim is proved in &ldquo;<a href="https://doi.org/10.5281/zenodo.19803209">The Verification Regress</a>&rdquo; (Komarovsky, 2026). This piece also extends arguments developed in &ldquo;Your AI Coding Assistant Is Quietly Creating a New Kind of Technical Debt&rdquo; (Komarovsky &amp; Muthusamy, AI Advances / Medium, 2025) and &ldquo;Your AI Just Wrote 500 Lines of Code. Can You Prove Any of It Works?&rdquo; (Medium, 2025).</em></p>
+
+</body>
+</html>
