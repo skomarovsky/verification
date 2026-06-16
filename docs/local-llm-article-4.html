@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>When Local GPU Inference Beats the Cloud</title>
+<style>
+  :root{
+    --ground:#FFFFFF;
+    --panel:#F6F8FA;
+    --panel-2:#FBFCFD;
+    --ink:#1A2129;
+    --ink-strong:#0B0F14;
+    --ink-dim:#41525F;
+    --ink-faint:#7A8A98;
+    --cyan:#0E8C85;
+    --cyan-deep:#0A6F69;
+    --amber:#B5781A;
+    --line:#E3E8ED;
+    --line-soft:#EDF1F4;
+    --max:720px;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:Charter,"Iowan Old Style",Georgia,"Times New Roman",serif;
+    font-size:20px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .mono{font-family:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;}
+
+  /* ---- shell ---- */
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 24px;}
+  .rule{height:1px;background:var(--line);border:0;margin:0;}
+
+  /* ---- hero ---- */
+  header.hero{
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 80% at 85% -10%, rgba(14,140,133,0.07), transparent 60%),
+      linear-gradient(180deg, var(--panel), var(--ground));
+    padding:74px 0 52px;
+  }
+  .eyebrow{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:12.5px;letter-spacing:0.22em;text-transform:uppercase;
+    color:var(--cyan);margin:0 0 22px;display:flex;align-items:center;gap:12px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px rgba(14,140,133,0.5);}
+  h1.title{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-weight:700;font-size:42px;line-height:1.12;letter-spacing:-0.02em;
+    margin:0 0 22px;color:var(--ink-strong);
+  }
+  h1.title em{color:var(--cyan);font-style:normal;}
+  .dek{font-size:21px;line-height:1.55;color:var(--ink-dim);margin:0 0 30px;max-width:62ch;}
+  .byline{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:13px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;
+  }
+  .byline b{color:var(--ink);font-weight:500;}
+  .byline .sep{color:var(--line);}
+
+  /* ---- body ---- */
+  main{padding:8px 0 64px;}
+  main p{margin:0 0 22px;}
+  main p.lead{font-size:22px;line-height:1.6;color:var(--ink-strong);}
+  main .wrap > p:first-of-type{margin-top:38px;}
+
+  h2{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-weight:700;font-size:15px;letter-spacing:0.04em;
+    color:var(--ink-strong);margin:54px 0 6px;line-height:1.3;
+    display:flex;gap:14px;align-items:baseline;
+  }
+  h2 .num{color:var(--cyan-deep);font-size:13px;flex:none;}
+  h2 + .sub{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:12px;letter-spacing:0.04em;color:var(--ink-faint);
+    margin:0 0 26px 0;padding-left:36px;text-transform:uppercase;
+  }
+  h3{
+    font-family:Charter,Georgia,serif;font-weight:700;font-size:21px;
+    color:var(--ink-strong);margin:36px 0 10px;
+  }
+  strong{color:var(--ink-strong);font-weight:700;}
+  em{color:var(--ink);}
+  a{color:var(--cyan);text-decoration:none;border-bottom:1px solid var(--cyan-deep);}
+  a:hover{color:var(--cyan-deep);}
+
+  /* ---- pull / callout ---- */
+  .pull{
+    margin:34px 0;padding:4px 0 4px 26px;border-left:3px solid var(--cyan);
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:19px;line-height:1.5;color:var(--ink);
+  }
+  .note{
+    margin:30px 0;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:22px 24px;
+  }
+  .note .tag{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:11.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--amber);
+    margin:0 0 10px;display:block;
+  }
+  .note p{font-size:18px;line-height:1.58;color:var(--ink-dim);margin:0;}
+  .note p + p{margin-top:12px;}
+  .note b{color:var(--ink);}
+
+  /* ---- ledger / cost strip ---- */
+  .ledger{
+    margin:34px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:var(--panel-2);
+  }
+  .ledger .row{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line);}
+  .ledger .row:last-child{border-bottom:0;}
+  .ledger .cell{padding:16px 20px;flex:1 1 50%;min-width:220px;}
+  .ledger .cell.local{background:rgba(14,140,133,0.05);}
+  .ledger .cell.cloud{background:rgba(181,120,26,0.05);border-left:1px solid var(--line);}
+  .ledger .k{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;
+  }
+  .ledger .local .k{color:var(--cyan);}
+  .ledger .cloud .k{color:var(--amber);}
+  .ledger .v{font-family:Charter,Georgia,serif;font-size:17px;line-height:1.5;color:var(--ink-dim);margin:0;}
+  .ledger .v b{color:var(--ink-strong);}
+  .ledger .big{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:26px;color:var(--ink-strong);display:block;margin:0 0 4px;font-weight:700;
+  }
+
+  /* ---- data tables ---- */
+  .tablewrap{margin:30px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{
+    border-collapse:collapse;width:100%;min-width:520px;
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;font-size:13.5px;
+  }
+  caption{
+    text-align:left;color:var(--ink-faint);font-size:12px;letter-spacing:0.04em;
+    padding:0 0 12px;font-family:"JetBrains Mono",monospace;text-transform:uppercase;
+  }
+  th,td{padding:11px 14px;text-align:center;border-bottom:1px solid var(--line);}
+  th{color:var(--cyan);font-weight:600;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;
+     border-bottom:1px solid var(--cyan-deep);background:var(--panel-2);}
+  td:first-child,th:first-child{text-align:left;color:var(--ink);}
+  td{color:var(--ink-dim);}
+  tbody tr:hover{background:rgba(14,140,133,0.05);}
+  .dot-full{color:var(--cyan);}
+  .dot-half{color:var(--ink-faint);}
+  .dot-none{color:#C2CCD4;}
+
+  figcaption{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:11.5px;color:var(--ink-faint);margin-top:12px;line-height:1.5;letter-spacing:0.02em;
+  }
+
+  /* ---- driver chips ---- */
+  .drivers{margin:26px 0;display:grid;gap:12px;}
+  .driver{border:1px solid var(--line);border-radius:9px;padding:16px 18px;background:var(--panel);}
+  .driver .name{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:13px;letter-spacing:0.03em;color:var(--cyan);margin:0 0 6px;font-weight:600;
+  }
+  .driver p{font-size:16.5px;line-height:1.5;color:var(--ink-dim);margin:0;}
+  .driver p b{color:var(--ink);}
+
+  /* ---- footnotes / refs ---- */
+  .refs{margin-top:30px;border-top:1px solid var(--line);padding-top:24px;}
+  .refs h2{margin-top:0;}
+  .refs ol{margin:0;padding-left:22px;}
+  .refs li{
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;
+    font-size:12.5px;line-height:1.6;color:var(--ink-faint);margin-bottom:10px;
+  }
+  sup a{font-size:0.7em;border:0;color:var(--cyan);padding:0 1px;}
+
+  footer.end{
+    border-top:1px solid var(--line);padding:34px 0 60px;color:var(--ink-faint);
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;font-size:12.5px;line-height:1.7;
+  }
+  footer.end b{color:var(--ink-dim);font-weight:500;}
+
+  @media (max-width:600px){
+    body{font-size:18px;}
+    h1.title{font-size:31px;}
+    .dek{font-size:18px;}
+    main p.lead{font-size:19px;}
+    header.hero{padding:52px 0 40px;}
+    .ledger .cell.cloud{border-left:0;}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .eyebrow .dot{animation:pulse 2.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow"><span class="dot"></span>Systems &middot; Inference economics</p>
+    <h1 class="title">When Local GPU Inference<br>Beats the Cloud</h1>
+    <p class="dek">A per-token meter never reaches zero marginal cost. Owned hardware does &mdash; and that single difference decides which AI workloads belong off the cloud. Here are eleven where it wins.</p>
+    <p class="byline mono">
+      <b>Stan Komarovsky</b><span class="sep">/</span>
+      <span>June 2026</span><span class="sep">/</span>
+      <span>~18 min read</span>
+    </p>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <p class="lead">Two years ago, running a capable model on your own hardware was a hobby. You did it to prove you could, not because it was the right call. That has changed, and I think most teams haven't noticed yet.</p>
+
+  <p>The reason is not that local models got smarter than the frontier. They didn't. The reason is structural, and it sits in the billing. Cloud inference is priced per token. Every call costs something, and the bill grows with use &mdash; linearly, forever. Local inference on hardware you own has a fixed cost up front and a marginal cost that drops to the price of electricity. For one-shot chat, none of this matters. For the workloads that now define serious AI engineering &mdash; agents that loop, routers that fire on every request, pipelines that never stop &mdash; it changes everything.</p>
+
+  <p>I want to walk through why, with the numbers, and then through the eleven workloads where owning the metal wins. Some of them you can't build any other way.</p>
+
+  <div class="pull">When the marginal cost of a call is zero, you stop rationing calls. And entire classes of system that a per-token meter would strangle quietly become buildable.</div>
+
+  <h2><span class="num">01</span> The physics decides the economics</h2>
+  <p class="sub">VRAM says whether it runs. Bandwidth says how fast.</p>
+
+  <p>Start with what the GPU is actually doing. Generating a token means streaming the model's weights &mdash; and the growing KV cache &mdash; through memory, once per token. So single-stream local inference is bound by memory bandwidth, not compute. Every 2026 benchmark write-up lands on the same two-part rule: VRAM capacity decides whether a model runs at all, and memory bandwidth decides how fast it feels.<sup><a href="#r1">1</a></sup></p>
+
+  <p>Two Blackwell cards anchor the conversation. The <strong>RTX 5080</strong> launched at a $999 MSRP with 16&nbsp;GB of GDDR7 and roughly 960&nbsp;GB/s of bandwidth. The <strong>RTX 5090</strong> launched at $1,999 with 32&nbsp;GB on a 512-bit bus pushing about 1.79&nbsp;TB/s &mdash; a 78% bandwidth jump over the previous-generation 4090. Both expose 5th-gen Tensor Cores with native FP8, which is the second lever: FP8 roughly halves memory use versus FP16 at near-parity accuracy, so a bigger model fits in the same VRAM.<sup><a href="#r1">1</a></sup></p>
+
+  <p>Those MSRPs are now fiction. As I write this in mid-2026, a memory crisis has decoupled street prices from launch prices &mdash; the 5080 runs about 45% over MSRP, and the 5090 sells new in the $3,400&ndash;$4,200 range, with custom and liquid-cooled variants higher. I deal with that head-on in section 5, because it cuts directly against the thesis and you deserve the real number. For now, hold the thought: the argument has to survive at $4,000, not $1,999.</p>
+
+  <p>The 16&nbsp;GB ceiling on the 5080 is the hard constraint. It hosts 14B&ndash;27B models at 4-bit quantization comfortably. It cannot hold 30B+ models without spilling to system RAM &mdash; and once you spill, throughput collapses, because the model no longer streams from 960&nbsp;GB/s VRAM but from far slower host memory. The 5090's 32&nbsp;GB lifts that ceiling to dense 32B and quantized 70B-class models, kept entirely resident. That's where its bandwidth advantage compounds: where the 5080 is forced to offload, the 5090 stays in VRAM and runs several times faster on the same model.</p>
+
+  <div class="tablewrap">
+  <figure style="margin:0;">
+  <table>
+    <caption>Single-stream throughput, consumer Blackwell</caption>
+    <thead><tr><th>GPU (street / VRAM)</th><th>8B Q4</th><th>14B Q4</th><th>27B Q4</th><th>30B+ dense</th></tr></thead>
+    <tbody>
+      <tr><td>RTX 5080 &middot; ~$1,400 / 16GB</td><td>~120 t/s</td><td>50&ndash;70 t/s</td><td>fits, slower</td><td class="dot-none">offload</td></tr>
+      <tr><td>RTX 5090 &middot; ~$3.5&ndash;4.2k / 32GB</td><td>~210 t/s</td><td>fast</td><td>resident</td><td>70B Q4 resident</td></tr>
+      <tr><td>Dual 5090 &middot; ~$4k / 64GB</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>70B comfortable</td></tr>
+    </tbody>
+  </table>
+  <figcaption>Synthesized from 2026 llama.cpp / Ollama / vLLM community benchmarks. Numbers move with quantization, context length, and KV-cache precision. The pattern is the point, not the third digit.</figcaption>
+  </figure>
+  </div>
+
+  <h2><span class="num">02</span> The cloud meter, priced honestly</h2>
+  <p class="sub">Output tokens are the expensive side</p>
+
+  <p>Now the other column. Cloud APIs bill per token, split between input and output, and output is where it hurts. As of mid-2026, OpenAI's flagship GPT-5.5 lists at $5.00 per million input tokens and <strong>$30.00 per million output</strong>. The lower-cost frontier tier GPT-5.4 runs $2.50 / $15.00. Nano-class routing models start near $0.10&ndash;$0.20 input. Cached input can knock off about 90% on the 5.x family, and Batch mode roughly halves standard rates for non-interactive work.<sup><a href="#r2">2</a></sup></p>
+
+  <p>I'm not going to pretend cloud is always the expensive choice. It isn't. For bursty, low-volume, or frontier-gated work, paying per token and touching no infrastructure is the right call, and the cached-input discount makes repeated-prompt workloads genuinely cheap. The point is narrower: the two cost structures are shaped differently. And the shape is what matters.</p>
+
+  <p>Consider one always-on workload generating output at a sustained rate &mdash; an agent loop, a batch ingestion job. A 5090 holding a capable quantized model at ~150 tokens/sec produces on the order of 13 million output tokens a day at full duty, low hundreds of millions a month. Run that on the meter and watch what happens.</p>
+
+  <div class="ledger">
+    <div class="row">
+      <div class="cell local">
+        <p class="k">Local &middot; RTX 5090 &middot; ~$4k up front</p>
+        <span class="big">~$60/mo</span>
+        <p class="v"><b>~$4,000</b> once at today's prices, then power. At ~575&nbsp;W under load and $0.15/kWh, running 24/7 is roughly <b>$60 a month</b> in electricity. Marginal cost per token effectively zero.</p>
+      </div>
+      <div class="cell cloud">
+        <p class="k">Cloud &middot; GPT-5.5 output</p>
+        <span class="big">~$9,000/mo</span>
+        <p class="v">At $30 per 1M output tokens, ~300M output tokens/month runs near <b>$9,000</b> &mdash; every month, before counting input, which in agent loops is often the larger share.</p>
+      </div>
+    </div>
+  </div>
+
+  <p>Even at $4,000, the card pays for itself in about two weeks against a workload that would saturate a frontier model's output meter &mdash; and keeps paying every month after. The capital cost went up; the conclusion didn't move. That's the whole argument in one comparison. When you architect a system assuming calls are free, you build it differently &mdash; and often better.</p>
+
+  <p>There's a second axis the meter hides: <strong>time-to-first-token</strong>. Cloud TTFT is network round-trip plus queueing plus prefill, and it's subject to throttling and noisy-neighbor variance you don't control. Local TTFT is prefill on resident weights, no network leg. With prefix caching (more on this below), the prefill of a large static context amortizes to almost nothing on every call after the first. For an inline tool or a tight loop, a predictable sub-100ms local TTFT beats a faster-but-variable cloud number.</p>
+
+  <h2><span class="num">03</span> Eleven workloads that want to be local</h2>
+  <p class="sub">Where zero-cost or no-network-leg is a precondition, not a perk</p>
+
+  <p>Here's the part worth your attention. These are workloads where the local properties aren't a nice-to-have &mdash; they're the reason the thing works. The first five span the inference loop. The next six extend the same logic across the rest of the model lifecycle: training, data, evaluation, privacy.</p>
+
+  <h3>1. Ultra-fast semantic routers</h3>
+  <p>A router encodes the incoming request into an embedding and classifies it &mdash; by domain, intent, reasoning-need, safety &mdash; before any expensive generation runs. On a small local encoder this is a sub-10ms operation that gates the whole pipeline: trivial queries take a fast path, hard ones get chain-of-thought, unsafe ones get blocked. The vLLM Semantic Router project built this into a multi-signal Rust/Candle kernel; its FastRouter component reports a 98&times; latency cut in a sub-800&nbsp;MB GPU footprint, deliberately tiny so it never steals a GPU that could be serving.<sup><a href="#r8">8</a></sup></p>
+  <p>Why local: a router earns its keep only if it's dramatically cheaper and faster than the model it guards. Paying a metered call, over the network, just to <em>decide</em> whether to make another call is self-defeating. The router's entire value is being a near-free, near-instant filter. Enormous call frequency, trivial work per call &mdash; the canonical zero-marginal-cost workload.</p>
+
+  <h3>2. Continuous agent loops and retry-until-success</h3>
+  <p>Agents run in reasoning loops: a big static context (goals, tool definitions, accumulated history) plus a small new suffix each turn. Two things make them brutal on a meter. The prefix is re-sent every turn, so consumption grows super-linearly over a task. And robust agents lean on retry-until-success &mdash; attempt, check, retry if the tool call fails or the output won't validate. On the meter, every retry is a fresh charge, so engineers cap retries and accept lower reliability. Locally, retries are free. You let the loop run until the result is verifiably correct.</p>
+  <div class="note">
+    <span class="tag">The compounding penalty</span>
+    <p>On metered APIs, a 10-step agent that retries each step twice doesn't cost 10 units. It costs the cumulative re-prefilling of a growing context across 20+ calls, and the bill compounds with task difficulty. Locally the same loop costs electricity. This is why "just let it retry" is a viable local strategy and an expensive cloud one.</p>
+  </div>
+
+  <h3>3. GPU-accelerated document conversion</h3>
+  <p>Turning messy PDFs, scans, tables, and forms into clean structured text is high-volume preprocessing that feeds every RAG pipeline. The modern approach uses a vision-language model end-to-end instead of a brittle OCR-plus-heuristics chain. IBM and Hugging Face's <strong>SmolDocling</strong> is the emblem: a 256M-parameter VLM emitting structured markup for text, layout, tables, and equations, averaging about 0.35 seconds per page in under 500&nbsp;MB of VRAM &mdash; while competing with VLMs up to 27&times; its size.<sup><a href="#r6">6</a></sup></p>
+  <p>Why local: conversion is embarrassingly parallel and unboundedly high-volume. An enterprise may have millions of pages. At sub-second-per-page and sub-gigabyte VRAM, one commodity GPU chews through the corpus at zero marginal cost &mdash; and the documents, usually the most sensitive data an organization holds, never leave the machine.</p>
+
+  <h3>4. Autonomously maintained knowledge bases</h3>
+  <p>Andrej Karpathy's LLM Wiki pattern reframes knowledge management around three layers: immutable raw sources, an LLM-compiled wiki of cross-referenced markdown, and a schema of conventions. The model does the bookkeeping humans abandon &mdash; cross-referencing, deduplication, contradiction-flagging &mdash; while the human curates. The insight: knowledge is compiled once and kept current, not re-derived on every query the way stateless RAG does it. So it compounds.<sup><a href="#r7">7</a></sup></p>
+  <p>Why local: the maintenance loop is a continuous background process. Every new source triggers re-compilation and re-linking. That always-running profile is exactly what a meter punishes. Run it locally and the wiki recompiles as often as you like, for free, against a private corpus that stays on disk &mdash; which is the whole point of a <em>personal</em> knowledge base.</p>
+
+  <h3>5. Zero-connectivity edge operations</h3>
+  <p>Some deployments have no cloud option at all. Autonomous robotics, drones, aviation, maritime &mdash; these operate where connectivity is intermittent, adversarial, or absent, and where a round-trip to a datacenter is a liability the mission won't accept. Here the question isn't cost. It's feasibility: inference runs on-board or it doesn't run.</p>
+  <p>Why local: a metered cloud call assumes a reachable meter. Strip the network and the per-token model evaporates &mdash; what remains is whatever weights you shipped on the device. Edge autonomy is the limiting case of this whole argument. The place where local isn't the better architecture. It's the only one.</p>
+
+  <h3>6. Local fine-tuning &mdash; LoRA and QLoRA</h3>
+  <p>The advantage reaches past inference into training. Parameter-efficient methods freeze the base model and train only small low-rank adapters, which collapses the hardware bar. By 2026, LoRA brings 7B-class fine-tuning into a 16&ndash;24&nbsp;GB envelope, and QLoRA &mdash; 4-bit base, higher-precision adapters &mdash; pushes a 7B fine-tune into roughly 8&ndash;12&nbsp;GB. A single 5090 specializes a model in an afternoon; Unsloth kernels and Axolotl pipelines make the loop turnkey.<sup><a href="#r9">9</a></sup></p>
+  <p>Why local: two reasons compound. The training data &mdash; often the most proprietary asset you own &mdash; never leaves the machine, which matters precisely because the reason to fine-tune is confidential or domain-specific material. And because an adapter run is free once you own the GPU, you can afford the dozens of throwaway experiments good fine-tuning actually needs. The economics flip from "get it right in one expensive shot" to "sweep until it works."</p>
+
+  <h3>7. Synthetic data generation at volume</h3>
+  <p>Producing training, eval, or augmentation corpora is the canonical bulk-output job &mdash; and output is the expensive side of the meter. Generating millions of synthetic examples on an API is a five-figure line item. On owned hardware it's electricity. That inversion changes the method itself: the recommended workflow is to over-generate and filter hard, keeping only the cleanest fraction. Over-generation is rational only when generation is free. Which is the local condition exactly.</p>
+
+  <h3>8. LLM-as-judge and continuous evaluation</h3>
+  <p>Modern eval harnesses score outputs with another model across many criteria and many cases. Call volume scales with your test matrix times how often you run it &mdash; for a healthy CI pipeline, on every commit. Small fine-tuned local judges (the 3B&ndash;8B evaluator class now returning verdicts in under 200ms) make that loop affordable; one 2026 guardrail vendor reports small-model evaluation at roughly 97% lower cost than frontier-model judging.<sup><a href="#r10">10</a></sup></p>
+  <p>Why local: metering judge calls turns continuous evaluation into a per-run tax teams ration. They evaluate less often, on smaller samples, and ship with weaker signal. A local judge runs the full suite on every change at zero marginal cost. That's what makes "evaluate continuously" a practice instead of an aspiration &mdash; and it doubles as a private guardrail, scoring outputs for policy compliance without shipping them off-box.</p>
+
+  <h3>9. Real-time local voice (STT &rarr; LLM &rarr; TTS)</h3>
+  <p>A voice agent chains speech-to-text, a model, and text-to-speech. In a cloud version the dominant cost is the cumulative network round-trips across that chain. Run it entirely on a consumer GPU &mdash; faster-whisper for STT, a quantized local LLM, a fast synthesizer like Piper or Kokoro &mdash; and a full turn lands around 1&ndash;2 seconds end-to-end. Stream the TTS so it starts speaking before the model finishes, and perceived latency drops further.<sup><a href="#r11">11</a></sup></p>
+  <p>Why local: two properties cloud can't match. The pipeline produces zero network traffic during operation &mdash; verifiable on the wire &mdash; so no audio, transcript, or query leaves the device, making GDPR/HIPAA posture structural rather than contractual. And it keeps working with no connectivity, which is the requirement in automotive, industrial, and mission-critical settings where a voice interface can't depend on a reachable datacenter.</p>
+
+  <h3>10. Inline PII redaction gateways</h3>
+  <p>A privacy gateway inspects every prompt, every retrieved chunk, every tool result, every response for personal or secret data before any of it is stored or forwarded. Agents widen this surface badly &mdash; memory, file uploads, agent-to-agent handoffs are all leakage paths &mdash; so the control sits at the model boundary and runs on essentially every request. A small local NER/judge model does reversible redaction inline: sensitive entities swapped for tokens going in, restored coming out, so the model reasons over sanitized text while the app still gets personalized output.<sup><a href="#r12">12</a></sup></p>
+  <p>Why local: there's a structural contradiction in using a remote endpoint to protect data. Sending a full clinical note to an external service just to redact one name fails GDPR's data-minimization principle on its face. Running the detector on-box resolves it &mdash; the sanitization happens inside the boundary, on every request, at the same near-free-filter economics as the router in workload 1.</p>
+
+  <h3>11. Sensitive-codebase and IP-bound assistants</h3>
+  <p>Source code, trade secrets, unreleased designs, NDA-bound client material &mdash; these are the inputs an organization is least willing to stream to a third party, and exactly the inputs a coding assistant is most useful against. A locally hosted (or air-gapped) assistant gives the inline, zero-latency benefits without the IP exfiltration and terms-of-service exposure of sending proprietary code to a vendor endpoint whose retention and training policies you don't control. For contract work under confidentiality, "the code never left our infrastructure" is a stronger and simpler assurance than any vendor data-processing agreement. For some engagements it's a precondition, not a preference.</p>
+
+  <h2><span class="num">04</span> Two software tricks that closed the gap</h2>
+  <p class="sub">Hardware sets the ceiling. Software decides how close you get.</p>
+
+  <p>Hardware alone didn't make local feel fast. Two techniques, both mainstreamed into open inference engines by 2026, did most of the work. They attack the two different costs of generation: re-processing context, and the sequential nature of decode.</p>
+
+  <h3>Automatic Prefix Caching</h3>
+  <p>Standard KV-cache handling is per-request &mdash; the key/value tensors from prefill get thrown away when generation ends, and any shared prefix across requests is recomputed from scratch. Automatic Prefix Caching, pioneered in vLLM, borrows the OS paging idea. The cache splits into fixed-size blocks; each block is hashed by its tokens plus the prefix before it; blocks with the same hash map to one physical block via a global table. A new request sharing a prefix reuses the cached blocks and prefills only the genuinely new suffix.<sup><a href="#r4">4</a></sup></p>
+  <div class="note">
+    <span class="tag">Why APC is the agent multiplier</span>
+    <p>In a multi-turn agent, the system prompt plus tool definitions plus history form a massive near-static prefix; the new observation is a tiny suffix. APC means each turn prefills only the latest turn, so latency stops climbing as the conversation grows. <b>This is the engine-level reason the free retries and long loops above actually run fast on one GPU</b> &mdash; the expensive prefill is paid once and amortized across the whole loop.</p>
+  </div>
+
+  <h3>Multi-Token Prediction</h3>
+  <p>Autoregressive decode is sequential &mdash; one forward pass per token &mdash; and that serialization, not raw compute, is the bottleneck. Multi-Token Prediction attacks it directly. Introduced by DeepSeek as a training objective (the model learns lightweight heads predicting the next several tokens), it got exposed at inference time in 2026 as first-class speculative decoding. In one forward pass the trunk predicts token N+1 while the MTP heads draft N+2 and N+3; the full model verifies all drafts in a single pass; accepted tokens commit and the loop advances.<sup><a href="#r5">5</a></sup></p>
+  <p>Because the draft heads are tiny and trained jointly with the model, acceptance rates are high and overhead is negligible. SGLang measured up to ~60% higher throughput on DeepSeek-V3 with no quality loss; DeepSeek's own analysis cites ~1.8&times;; 2026 community reports on consumer GPUs with vLLM 0.9+ describe 2&ndash;3&times; single-user speedups. And it adds no VRAM pressure worth mentioning. It's a pure software win on hardware you already have.<sup><a href="#r5">5</a></sup></p>
+
+  <p>Stacked, the two cover both halves of the latency budget. APC makes the context nearly free to re-ingest; MTP makes the new tokens come out faster. Together they're why a single-GPU 2026 setup feels responsive in exactly the long-context, high-frequency regime that defines agent work.</p>
+
+  <h2><span class="num">05</span> The elephant: the 2026 memory crisis</h2>
+  <p class="sub">The same AI boom makes the case &mdash; and inflates the hardware</p>
+
+  <p>I promised to deal with the prices, so here it is. Through 2026, a global DRAM and GDDR7 shortage has repriced the entire consumer GPU market. AI datacenters bought memory years ahead to feed their buildout, supply collapsed for everyone else, and memory now accounts for more than 80% of a GPU's bill of materials. The result: the 5080 sells around 45% over its $999 MSRP, and the 5090 &mdash; the card I keep pointing at &mdash; runs $3,400 to $4,200 new, with custom and liquid-cooled boards well past that.<sup><a href="#r13">13</a></sup></p>
+
+  <p>There's an uncomfortable irony in this, and I won't pretend otherwise. The very thing that makes local inference attractive &mdash; the explosion of AI workloads &mdash; is what spiked the hardware. The Founders Edition still lists at $1,999, but it sells out in minutes and you will not get one. So the honest number for a build today is closer to $4,000 than $2,000, and waiting it out is a weak plan: supply forecasts don't show meaningful relief through at least mid-2026.<sup><a href="#r13">13</a></sup></p>
+
+  <div class="note">
+    <span class="tag">Why the thesis holds anyway</span>
+    <p>Run the comparison at the painful price. A $4,000 card against a ~$9,000/month output bill still breaks even in roughly two weeks. Triple the hardware to $12,000 for a multi-GPU box and it's still inside two months &mdash; against a bill that recurs forever. <b>The crisis moved the break-even from days to weeks. It did not flip the sign.</b> One pricing tracker put it plainly: for AI users the 5090 pays for itself in three to five months versus cloud, which is exactly why those users now set a price floor under the card.</p>
+  </div>
+
+  <p>Two things follow. First, if your workload doesn't saturate the meter, the math changes &mdash; at low volume, today's hardware premium can take a year or more to earn back, and cloud is the right call. Be honest about your duty cycle before you buy. Second, the sovereignty and feasibility cases (sections below) never depended on price at all. If the data can't leave the building, or there's no network to begin with, a $4,000 card isn't competing with cloud &mdash; it's the only option, expensive or not.</p>
+
+  <p>I'd rather you have the real number and a thesis that survives it than a clean $1,999 that doesn't exist. It survives.</p>
+
+  <h2><span class="num">06</span> A taxonomy: four reasons to go local</h2>
+  <p class="sub">The more reasons a workload sits on, the more durable the case</p>
+
+  <p>The eleven aren't a flat list. They cluster around four underlying drivers, and most strong local cases are pulled by more than one. The taxonomy is useful because it tells you <em>why</em> a workload belongs on local hardware &mdash; and therefore how durable that placement is as cloud prices keep falling.</p>
+
+  <div class="drivers">
+    <div class="driver">
+      <p class="name">// zero-marginal-cost</p>
+      <p>The work is called so often, or generates so much output, that a per-token meter dominates. <b>Routers, agent loops, synthetic data, LLM-as-judge, document conversion, PII gateways.</b></p>
+    </div>
+    <div class="driver">
+      <p class="name">// zero network leg</p>
+      <p>Removing the round-trip is the point: predictable latency, no rate-limit variance, responsiveness in the inner loop. <b>Inline dev assistants, real-time voice, routers, prefix-cached loops.</b></p>
+    </div>
+    <div class="driver">
+      <p class="name">// data sovereignty</p>
+      <p>Compliance or confidentiality makes transmission itself disqualifying, regardless of price. <b>PII redaction, sensitive-code assistants, fine-tuning on proprietary data, regulated voice, ITAR/HIPAA.</b></p>
+    </div>
+    <div class="driver">
+      <p class="name">// feasibility</p>
+      <p>Connectivity is absent, adversarial, or intermittent, so on-board is the only architecture. <b>Edge autonomy &mdash; robotics, drones, aviation, maritime &mdash; and comms-denied control.</b></p>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+  <figure style="margin:0;">
+  <table>
+    <caption>Use case &times; driver</caption>
+    <thead><tr><th>Workload</th><th>Zero-cost</th><th>No net leg</th><th>Sovereignty</th><th>Feasibility</th></tr></thead>
+    <tbody>
+      <tr><td>Semantic routers</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-half">&#9675;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Agent retry loops</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-half">&#9675;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Document conversion</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Knowledge base</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Edge autonomy</td><td class="dot-half">&#9675;</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td></tr>
+      <tr><td>Local fine-tuning</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Synthetic data</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td><td class="dot-half">&#9675;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>LLM-as-judge</td><td class="dot-full">&#9679;</td><td class="dot-half">&#9675;</td><td class="dot-half">&#9675;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Real-time voice</td><td class="dot-half">&#9675;</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-half">&#9675;</td></tr>
+      <tr><td>PII gateway</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td></tr>
+      <tr><td>Sensitive-code assistant</td><td class="dot-half">&#9675;</td><td class="dot-full">&#9679;</td><td class="dot-full">&#9679;</td><td class="dot-none">&mdash;</td></tr>
+    </tbody>
+  </table>
+  <figcaption>&#9679; primary driver &nbsp; &#9675; secondary / situational &nbsp; &mdash; not typically a factor. Most workloads sit on two or more. The more drivers, the harder the case is to undercut on price alone.</figcaption>
+  </figure>
+  </div>
+
+  <h2><span class="num">07</span> What this actually means</h2>
+  <p class="sub">The inversion, stated plainly</p>
+
+  <p>I'll be precise about the claim, because it's easy to overstate. Cloud is not defeated. For frontier-gated, bursty, or low-volume work it stays the right choice, and the caching and batch discounts are real money saved. The claim is narrower and sharper: for high-frequency, retry-heavy, long-context, always-on, or connectivity-constrained workloads, local wins on three structural grounds that no amount of cloud price-cutting touches.</p>
+
+  <p><strong>Cost.</strong> Local marginal cost goes to zero; cloud marginal cost is positive and scales with use. For saturated generation, the hardware amortizes in weeks even at crisis prices. This doesn't make calls cheaper. It makes them free &mdash; which lets you design around abundance instead of rationing.</p>
+
+  <p><strong>Latency.</strong> Local removes the network leg, APC amortizes large-context prefill to near zero, MTP accelerates decode 2&ndash;3&times;. The result is predictable sub-100ms TTFT in exactly the long-context regime where cloud latency is most variable and rate limits bite hardest.</p>
+
+  <p><strong>Control.</strong> Data never leaves the boundary. Models are pinned and reproducible. There's no throttle but your own silicon. At the edge this isn't an advantage &mdash; it's the only thing that runs. And the same logic now covers the whole lifecycle: train, generate, evaluate, serve, guard, all on-box.</p>
+
+  <p>The throughline is one inversion. When you stop paying per call, you stop designing as though calls are scarce. Sub-10ms routers ahead of every request. Agents that retry until correct. Pipelines that recompile a knowledge base continuously. Vehicles that reason on-board with no uplink. These aren't cloud workloads that happen to be cheaper locally. They're workloads a per-token meter would never have let you build in the first place.</p>
+
+  <p>That's the shift, and it's why I keep a 5090 warm under my desk. Renting intelligence by the token is the right model for a lot of things. Owning a capability outright is the right model for the things you run constantly &mdash; and on 2026 commodity hardware, owning it is finally fast, cheap, and practical.</p>
+
+  <div class="refs">
+    <h2><span class="num">&sect;</span> References</h2>
+    <ol>
+      <li id="r1">RTX 5090: 32&nbsp;GB GDDR7, 512-bit bus, ~1.79&nbsp;TB/s, 575&nbsp;W TDP, Blackwell GB202; launch MSRP $1,999. RTX 5080: 16&nbsp;GB GDDR7, ~960&nbsp;GB/s; launch MSRP $999. Runpod / BIZON / Local AI Master hardware guides, 2026.</li>
+      <li id="r2">OpenAI API pricing, aggregated 2026-06-13 (aipricing.guru / OpenAI). GPT-5.5 $5/$30 per 1M in/out; GPT-5.4 $2.50/$15; nano tiers from $0.10&ndash;$0.20 input.</li>
+      <li id="r4">vLLM documentation, "Automatic Prefix Caching" (design/prefix_caching); Berkeley PagedAttention lineage.</li>
+      <li id="r5">LMSYS, "Accelerating SGLang with MTP" (2025-07-17); DeepSeek-V3 MTP analysis; consumer-GPU vLLM 0.9+ MTP reports, 2026.</li>
+      <li id="r6">Nassar et al., "SmolDocling" (arXiv:2503.11576). 256M-param VLM; ~0.35&nbsp;s/page, &lt;500&nbsp;MB VRAM on a consumer GPU.</li>
+      <li id="r7">Karpathy LLM Wiki gist, 2026; decodethefuture.org and levelup.gitconnected.com analyses.</li>
+      <li id="r8">vLLM Semantic Router "Iris" v0.1 (blog.vllm.ai, 2026-01-05); FastRouter footprint and latency figures.</li>
+      <li id="r9">LoRA / QLoRA envelopes and toolchain: SitePoint "Fine-Tune Local LLMs 2026"; DEV / Effloow QLoRA guides; hjLabs best-practices (Unsloth, Axolotl, PEFT/TRL, vLLM LoRA hot-swap).</li>
+      <li id="r10">Small-model (3B&ndash;8B) judge at sub-200ms and ~97% lower cost than frontier evaluation: Galileo enterprise LLM-monitoring overview (Luna-2 SLMs), 2026.</li>
+      <li id="r11">Local STT&rarr;LLM&rarr;TTS latency and streaming-TTS technique: promptquorum "Build Offline Voice Assistant 2026"; local-llm.net guide; BrightCoding LiveKit pipeline, 2026.</li>
+      <li id="r12">PII entry points, reversible redaction, and the data-minimization argument: PredictionGuard, TrueFoundry, Gravitee AI-gateway analyses, 2026; OWASP LLM02.</li>
+      <li id="r13">2026 GDDR7/DRAM memory crisis and street pricing: TweakTown (RTX 5080/5090 at 45%/75%+ over MSRP, 2026-02); TechPowerUp (Newegg 5090 listings &gt;$4,000, 2026-05); TrackaLacker / bestvaluegpu.com ($3.4k&ndash;$4.2k new, mid-2026); TrendForce (memory &gt;80% of GPU BOM, 2026-01); levelupblogs RTX 5090 price analysis (3&ndash;5 month payback vs cloud).</li>
+    </ol>
+  </div>
+
+</div>
+</main>
+
+<footer class="end">
+  <div class="wrap">
+    <p><b>Note on figures.</b> Hardware and pricing reflect public data current to June 2026 and will drift. Verify against vendor pages before relying on a specific number for procurement. The ITAR/HIPAA points describe an architectural posture, not legal advice &mdash; confirm specific obligations with qualified counsel.</p>
+    <p>&copy; 2026 Stan Komarovsky &middot; ORCID 0009-0008-1808-144X</p>
+  </div>
+</footer>
+
+</body>
+</html>
